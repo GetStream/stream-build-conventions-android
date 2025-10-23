@@ -1,0 +1,20 @@
+[versions]
+agp = "8.11.1"
+kotlin = "2.0.21"
+detekt = "1.23.8"
+spotless = "7.2.1"
+kotlinDokka = "2.0.0"
+gradlePluginPublish = "2.0.0"
+mavenPublish = "0.32.0"
+
+[libraries]
+android-gradle-plugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
+kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+dokka = { id = "org.jetbrains.dokka-javadoc", version.ref = "kotlinDokka" }
+gradle-plugin-publish = { id = "com.gradle.plugin-publish", version.ref = "gradlePluginPublish" }
+maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "mavenPublish" }
+detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
