@@ -21,19 +21,43 @@ import com.android.build.api.dsl.LibraryExtension
 import org.gradle.api.JavaVersion
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.plugins.AppliedPlugin
 import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.api.tasks.testing.Test
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
-import org.gradle.kotlin.dsl.configure
+import org.gradle.kotlin.dsl.create
+import org.gradle.kotlin.dsl.findByType
+import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.withType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
+/**
+ * Root-level convention plugin for Stream projects. Apply this plugin to the root project to
+ * configure project-wide settings.
+ */
+class RootConventionPlugin : Plugin<Project> {
+    override fun apply(target: Project) {
+        with(target) {
+            require(this == rootProject) {
+                "The io.getstream.project plugin should be applied to the root project only"
+            }
+
+            // Create the project-wide extension
+            extensions.create<StreamProjectExtension>("streamProject")
+        }
+    }
+}
 
 class AndroidApplicationConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
             pluginManager.apply("com.android.application")
 
+            createModuleExtension()
             configureAndroid<ApplicationExtension>()
+            configureKotlin()
+            configureSpotless()
         }
     }
 }
@@ -43,16 +67,37 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
         with(target) {
             pluginManager.apply("com.android.library")
 
+            createModuleExtension()
             configureAndroid<LibraryExtension>()
+            configureKotlin()
+            configureSpotless()
         }
     }
+}
+
+class JavaLibraryConventionPlugin : Plugin<Project> {
+    override fun apply(target: Project) {
+        with(target) {
+            pluginManager.apply("java-library")
+            pluginManager.apply("org.jetbrains.kotlin.jvm")
+
+            createModuleExtension()
+            configureJava()
+            configureKotlin()
+            configureSpotless()
+        }
+    }
+}
+
+private fun Project.createModuleExtension() {
+    extensions.create<StreamModuleExtension>("streamModule")
 }
 
 private val javaVersion = JavaVersion.VERSION_11
 private val jvmTargetVersion = JvmTarget.JVM_11
 
 private inline fun <reified Ext : CommonExtension<*, *, *, *, *, *>> Project.configureAndroid() {
-    val commonExtension = extensions.getByType(Ext::class.java)
+    val commonExtension = extensions.getByType<Ext>()
 
     commonExtension.apply {
         compileOptions {
@@ -81,11 +126,41 @@ private inline fun <reified Ext : CommonExtension<*, *, *, *, *, *>> Project.con
         sourceCompatibility = javaVersion.toString()
         targetCompatibility = javaVersion.toString()
     }
+}
 
-    // Configure the Kotlin plugin if it is applied
-    pluginManager.withPlugin("org.jetbrains.kotlin.android") {
-        extensions.configure<KotlinAndroidProjectExtension> {
-            compilerOptions { jvmTarget.set(jvmTargetVersion) }
+private fun Project.configureJava() {
+    tasks.withType<JavaCompile>().configureEach {
+        sourceCompatibility = javaVersion.toString()
+        targetCompatibility = javaVersion.toString()
+    }
+
+    tasks.withType<Test>().configureEach {
+        testLogging {
+            events("failed")
+            showExceptions = true
+            showCauses = true
+            showStackTraces = true
+            exceptionFormat = TestExceptionFormat.FULL
         }
     }
 }
+
+private fun Project.configureKotlin() {
+    val configure =
+        fun(_: AppliedPlugin) {
+            tasks.withType<KotlinCompile>().configureEach {
+                compilerOptions { jvmTarget.set(jvmTargetVersion) }
+            }
+        }
+
+    // Configure the Kotlin plugin that is applied, if any
+    pluginManager.withPlugin("org.jetbrains.kotlin.android", configure)
+    pluginManager.withPlugin("org.jetbrains.kotlin.jvm", configure)
+}
+
+internal fun Project.requireStreamProjectExtension(): StreamProjectExtension =
+    rootProject.extensions.findByType<StreamProjectExtension>()
+        ?: error(
+            "${StreamProjectExtension::class.simpleName} not found. " +
+                    "Apply the io.getstream.project plugin to the root project"
+        )
