@@ -20,13 +20,31 @@ import com.android.build.api.dsl.LibraryExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
+/**
+ * Root-level convention plugin for Stream projects. Apply this plugin to the root project to
+ * configure project-wide settings.
+ */
+class RootConventionPlugin : Plugin<Project> {
+    override fun apply(target: Project) {
+        with(target) {
+            require(this == rootProject) {
+                "The io.getstream.project plugin should be applied to the root project only"
+            }
+
+            createProjectExtension()
+        }
+    }
+}
+
 class AndroidApplicationConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
             pluginManager.apply("com.android.application")
 
+            createModuleExtension()
             configureAndroid<ApplicationExtension>()
             configureKotlin()
+            configureSpotless()
         }
     }
 }
@@ -36,8 +54,10 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
         with(target) {
             pluginManager.apply("com.android.library")
 
+            createModuleExtension()
             configureAndroid<LibraryExtension>()
             configureKotlin()
+            configureSpotless()
         }
     }
 }
@@ -46,9 +66,12 @@ class JavaLibraryConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         with(target) {
             pluginManager.apply("java-library")
+            pluginManager.apply("org.jetbrains.kotlin.jvm")
 
+            createModuleExtension()
             configureJava()
             configureKotlin()
+            configureSpotless()
         }
     }
 }
