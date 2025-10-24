@@ -24,6 +24,7 @@ dependencies {
     compileOnly(gradleKotlinDsl())
     compileOnly(libs.android.gradle.plugin)
     compileOnly(libs.kotlin.gradle.plugin)
+    implementation(libs.spotless.gradle.plugin)
 }
 
 val repoId = "GetStream/stream-build-conventions-android"
@@ -34,6 +35,13 @@ gradlePlugin {
     vcsUrl = repoUrl
 
     plugins {
+        create("root") {
+            id = "io.getstream.project"
+            implementationClass = "io.getstream.android.RootConventionPlugin"
+            displayName = "Stream Root Convention Plugin"
+            description = "Root convention plugin for Stream projects - configures project-wide settings"
+            tags = listOf("stream", "conventions", "configuration")
+        }
         create("androidLibrary") {
             id = "io.getstream.android.library"
             implementationClass = "io.getstream.android.AndroidLibraryConventionPlugin"
