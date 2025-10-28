@@ -35,14 +35,27 @@ constructor(project: Project, objects: ObjectFactory) {
 
     /** Whether to apply ktfmt formatting instead of ktlint to Kotlin files. Default: false */
     val useKtfmt: Property<Boolean> = objects.property<Boolean>().convention(false)
+
+    /** The version string for published artifacts. */
+    val version: Property<String> =
+        objects.property<String>().convention(project.provider { project.version.toString() })
+
+    /** Description of the artifacts. */
+    val description: Property<String> = objects.property()
 }
 
 /**
  * Extension for configuring Stream module-specific settings. This extension is created in each
  * module where a Stream convention plugin is applied.
  */
-abstract class StreamModuleExtension @Inject constructor(objects: ObjectFactory) {
+abstract class StreamModuleExtension @Inject constructor(project: Project, objects: ObjectFactory) {
 
     /** Whether to disable Spotless formatting in this specific module. Default: false */
     val disableSpotless: Property<Boolean> = objects.property<Boolean>().convention(false)
+
+    /** Whether to enable Maven publishing for this module. Default: true */
+    val publishingEnabled: Property<Boolean> = objects.property<Boolean>().convention(true)
+
+    /** The Maven artifact ID for this module. Defaults to the module name. */
+    val artifactId: Property<String> = objects.property<String>().convention(project.name)
 }

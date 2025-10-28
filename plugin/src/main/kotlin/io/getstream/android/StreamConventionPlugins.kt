@@ -71,6 +71,7 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
             configureAndroid<LibraryExtension>()
             configureKotlin()
             configureSpotless()
+            configurePublishing()
         }
     }
 }
@@ -85,6 +86,7 @@ class JavaLibraryConventionPlugin : Plugin<Project> {
             configureJava()
             configureKotlin()
             configureSpotless()
+            configurePublishing()
         }
     }
 }
@@ -162,5 +164,5 @@ internal fun Project.requireStreamProjectExtension(): StreamProjectExtension =
     rootProject.extensions.findByType<StreamProjectExtension>()
         ?: error(
             "${StreamProjectExtension::class.simpleName} not found. " +
-                    "Apply the io.getstream.project plugin to the root project"
+                "Apply the io.getstream.project plugin to the root project"
         )

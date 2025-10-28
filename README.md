@@ -13,23 +13,66 @@ dependencies, and configurations used across Stream's Android projects.
 
 ## Available Plugins
 
+- **`io.getstream.project`** - Root project configuration (apply to root `build.gradle.kts`)
 - **`io.getstream.android.library`** - For Android library modules
 - **`io.getstream.android.application`** - For Android application modules
 - **`io.getstream.java.library`** - For Java/Kotlin JVM library modules
 
 ## Usage
 
-Add the plugin to your project's build file:
+### 1. Root Project Configuration
+
+Apply the root plugin in your root `build.gradle.kts`:
 
 ```kotlin
 plugins {
-    id("io.getstream.android.library") version "<version>"
-    // or
-    id("io.getstream.android.application") version "<version>"
-    // or
-    id("io.getstream.java.library") version "<version>"
+    id("io.getstream.project") version "<version>"
+}
+
+streamProject {
+    // Repository name for GitHub URLs and license headers (default: project name)
+    repositoryName.set("stream-chat-android")
+    
+    // Choose formatter (default: false = ktlint)
+    useKtfmt.set(false)
+    
+    // Version for all published modules (default: project.version)
+    version.set("1.0.0")
+    
+    // Description for published artifacts
+    description.set("Stream SDK for Android")
 }
 ```
+
+### 2. Module Configuration
+
+Apply the appropriate plugin to each module:
+
+```kotlin
+plugins {
+    id("io.getstream.android.library")
+    // or id("io.getstream.android.application")
+    // or id("io.getstream.java.library")
+}
+
+streamModule {
+    // Disable Spotless for this module (default: false)
+    disableSpotless.set(false)
+    
+    // Disable publishing for this module (default: true)
+    publishingEnabled.set(false)
+    
+    // Override artifact ID (default: module name)
+    artifactId.set("custom-artifact-id")
+}
+```
+
+## Features
+
+The plugins provide:
+- **Code formatting** with Spotless (Ktlint or Ktfmt)
+- **Automatic license headers** with copyright year and repository info
+- **Consistent build configuration** across all modules
 
 ## Distribution
 
