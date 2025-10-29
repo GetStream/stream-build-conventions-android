@@ -39,12 +39,14 @@ gradlePlugin {
             implementationClass = "io.getstream.android.AndroidLibraryConventionPlugin"
             displayName = "Stream Android Library Convention Plugin"
             description = "Convention plugin for Stream Android library modules"
+            tags = listOf("android", "library", "convention", "stream", "kotlin")
         }
         create("androidApplication") {
             id = "io.getstream.android.application"
             implementationClass = "io.getstream.android.AndroidApplicationConventionPlugin"
             displayName = "Stream Android Application Convention Plugin"
             description = "Convention plugin for Stream Android application modules"
+            tags = listOf("android", "application", "convention", "stream", "kotlin")
         }
     }
 }
