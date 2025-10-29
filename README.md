@@ -41,6 +41,10 @@ streamProject {
     
     // Description for published artifacts
     description.set("Stream SDK for Android")
+    
+    // Sonar configuration (optional - enabled if SONAR_TOKEN is set as an env variable)
+    sonarIgnoredModules.set(setOf("sample", "buildSrc")) // Modules to exclude (e.g., "metrics:app")
+    sonarExclusions.add("**/custom/**") // Additional file exclusion patterns
 }
 ```
 
@@ -73,6 +77,7 @@ The plugins provide:
 - **Code formatting** with Spotless (Ktlint or Ktfmt)
 - **Automatic license headers** with copyright year and repository info
 - **Consistent build configuration** across all modules
+- **Sonar/SonarCloud integration** with Kover for code coverage (optional)
 
 ## Distribution
 

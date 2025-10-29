@@ -45,6 +45,7 @@ class RootConventionPlugin : Plugin<Project> {
 
             // Create the project-wide extension
             extensions.create<StreamProjectExtension>("streamProject")
+            configureSonarRoot()
         }
     }
 }
@@ -58,6 +59,7 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
             configureAndroid<ApplicationExtension>()
             configureKotlin()
             configureSpotless()
+            configureSonarModule()
         }
     }
 }
@@ -71,6 +73,7 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
             configureAndroid<LibraryExtension>()
             configureKotlin()
             configureSpotless()
+            configureSonarModule()
             configurePublishing()
         }
     }
@@ -86,6 +89,7 @@ class JavaLibraryConventionPlugin : Plugin<Project> {
             configureJava()
             configureKotlin()
             configureSpotless()
+            configureSonarModule()
             configurePublishing()
         }
     }

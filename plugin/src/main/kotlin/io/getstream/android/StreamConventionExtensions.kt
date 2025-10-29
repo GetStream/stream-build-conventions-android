@@ -18,8 +18,12 @@ package io.getstream.android
 import javax.inject.Inject
 import org.gradle.api.Project
 import org.gradle.api.model.ObjectFactory
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.provider.SetProperty
+import org.gradle.kotlin.dsl.listProperty
 import org.gradle.kotlin.dsl.property
+import org.gradle.kotlin.dsl.setProperty
 
 /**
  * Extension for configuring Stream project-wide settings. Apply the `io.getstream.project` plugin
@@ -42,6 +46,21 @@ constructor(project: Project, objects: ObjectFactory) {
 
     /** Description of the artifacts. */
     val description: Property<String> = objects.property()
+
+    /**
+     * Additional Sonar exclusion patterns beyond the defaults. Default exclusions include test
+     * files, generated code, etc.
+     */
+    val sonarExclusions: ListProperty<String> =
+        objects.listProperty<String>().convention(emptyList())
+
+    /**
+     * Modules to exclude from Sonar analysis by their Gradle path (without leading colon).
+     * Examples: "sample", "metrics:app", "buildSrc". These modules will not have Sonar/Kover
+     * configured.
+     */
+    val sonarIgnoredModules: SetProperty<String> =
+        objects.setProperty<String>().convention(emptySet())
 }
 
 /**
