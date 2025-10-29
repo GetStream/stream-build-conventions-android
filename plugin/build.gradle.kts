@@ -1,4 +1,5 @@
-import com.vanniktech.maven.publish.GradlePublishPlugin
+import com.vanniktech.maven.publish.GradlePlugin
+import com.vanniktech.maven.publish.JavadocJar
 import com.vanniktech.maven.publish.SonatypeHost
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -7,7 +8,6 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.dokka)
     alias(libs.plugins.maven.publish)
-    alias(libs.plugins.gradle.plugin.publish)
 }
 
 group = "io.getstream"
@@ -53,7 +53,7 @@ gradlePlugin {
 
 mavenPublishing {
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
-    configure(GradlePublishPlugin())
+    configure(GradlePlugin(javadocJar = JavadocJar.Javadoc(), sourcesJar = true))
 
     pom {
         name.set("Stream Build Conventions")
@@ -106,18 +106,4 @@ mavenPublishing {
             url.set(repoUrl)
         }
     }
-}
-
-tasks.withType<PublishToMavenRepository>().configureEach {
-    mustRunAfter(tasks.publishPlugins)
-}
-
-// Publish on the Gradle Plugin Portal only final versions, not snapshots
-tasks.publishPlugins {
-    enabled = System.getenv("SNAPSHOT")?.toBoolean() != true
-}
-
-// Publish on Maven after publishing on the Gradle Plugin Portal
-tasks.publish {
-    dependsOn(tasks.publishPlugins)
 }
