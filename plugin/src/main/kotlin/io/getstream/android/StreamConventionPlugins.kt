@@ -21,12 +21,14 @@ import com.android.build.api.dsl.LibraryExtension
 import org.gradle.api.JavaVersion
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.plugins.AppliedPlugin
 import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.api.tasks.testing.Test
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
-import org.gradle.kotlin.dsl.configure
+import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.withType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 class AndroidApplicationConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
@@ -34,6 +36,7 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
             pluginManager.apply("com.android.application")
 
             configureAndroid<ApplicationExtension>()
+            configureKotlin()
         }
     }
 }
@@ -44,6 +47,19 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
             pluginManager.apply("com.android.library")
 
             configureAndroid<LibraryExtension>()
+            configureKotlin()
+        }
+    }
+}
+
+class JavaLibraryConventionPlugin : Plugin<Project> {
+    override fun apply(target: Project) {
+        with(target) {
+            pluginManager.apply("java-library")
+            pluginManager.apply("org.jetbrains.kotlin.jvm")
+
+            configureJava()
+            configureKotlin()
         }
     }
 }
@@ -52,7 +68,7 @@ private val javaVersion = JavaVersion.VERSION_11
 private val jvmTargetVersion = JvmTarget.JVM_11
 
 private inline fun <reified Ext : CommonExtension<*, *, *, *, *, *>> Project.configureAndroid() {
-    val commonExtension = extensions.getByType(Ext::class.java)
+    val commonExtension = extensions.getByType<Ext>()
 
     commonExtension.apply {
         compileOptions {
@@ -64,15 +80,7 @@ private inline fun <reified Ext : CommonExtension<*, *, *, *, *, *>> Project.con
             unitTests {
                 isIncludeAndroidResources = true
                 isReturnDefaultValues = true
-                all {
-                    it.testLogging {
-                        events("failed")
-                        showExceptions = true
-                        showCauses = true
-                        showStackTraces = true
-                        exceptionFormat = TestExceptionFormat.FULL
-                    }
-                }
+                all(Test::configureTestLogging)
             }
         }
     }
@@ -81,11 +89,34 @@ private inline fun <reified Ext : CommonExtension<*, *, *, *, *, *>> Project.con
         sourceCompatibility = javaVersion.toString()
         targetCompatibility = javaVersion.toString()
     }
+}
 
-    // Configure the Kotlin plugin if it is applied
-    pluginManager.withPlugin("org.jetbrains.kotlin.android") {
-        extensions.configure<KotlinAndroidProjectExtension> {
-            compilerOptions { jvmTarget.set(jvmTargetVersion) }
-        }
+private fun Project.configureJava() {
+    tasks.withType<JavaCompile>().configureEach {
+        sourceCompatibility = javaVersion.toString()
+        targetCompatibility = javaVersion.toString()
     }
+
+    tasks.withType<Test>().configureEach(Test::configureTestLogging)
+}
+
+private fun Test.configureTestLogging() = testLogging {
+    events("failed")
+    showExceptions = true
+    showCauses = true
+    showStackTraces = true
+    exceptionFormat = TestExceptionFormat.FULL
+}
+
+private fun Project.configureKotlin() {
+    val configure =
+        fun(_: AppliedPlugin) {
+            tasks.withType<KotlinCompile>().configureEach {
+                compilerOptions { jvmTarget.set(jvmTargetVersion) }
+            }
+        }
+
+    // Configure the Kotlin plugin that is applied, if any
+    pluginManager.withPlugin("org.jetbrains.kotlin.android", configure)
+    pluginManager.withPlugin("org.jetbrains.kotlin.jvm", configure)
 }
