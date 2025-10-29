@@ -88,6 +88,4 @@ private inline fun <reified Ext : CommonExtension<*, *, *, *, *, *>> Project.con
             compilerOptions { jvmTarget.set(jvmTargetVersion) }
         }
     }
-
-    extensions.create("streamAndroid", StreamAndroidExtension::class.java, commonExtension)
 }
