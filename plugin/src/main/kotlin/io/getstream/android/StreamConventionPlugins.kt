@@ -17,6 +17,7 @@ package io.getstream.android
 
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.api.dsl.LibraryExtension
+import com.android.build.api.dsl.TestExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
@@ -56,6 +57,19 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
 
             createModuleExtension()
             configureAndroid<LibraryExtension>()
+            configureKotlin()
+            configureSpotless()
+        }
+    }
+}
+
+class AndroidTestConventionPlugin : Plugin<Project> {
+    override fun apply(target: Project) {
+        with(target) {
+            pluginManager.apply("com.android.test")
+
+            createModuleExtension()
+            configureAndroid<TestExtension>()
             configureKotlin()
             configureSpotless()
         }

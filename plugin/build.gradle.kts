@@ -56,6 +56,13 @@ gradlePlugin {
             description = "Convention plugin for Stream Android application modules"
             tags = listOf("android", "application", "convention", "stream", "kotlin")
         }
+        create("androidTest") {
+            id = "io.getstream.android.test"
+            implementationClass = "io.getstream.android.AndroidTestConventionPlugin"
+            displayName = "Stream Android Test Convention Plugin"
+            description = "Convention plugin for Stream Android test modules"
+            tags = listOf("android", "test", "convention", "stream", "kotlin")
+        }
         create("javaLibrary") {
             id = "io.getstream.java.library"
             implementationClass = "io.getstream.android.JavaLibraryConventionPlugin"
