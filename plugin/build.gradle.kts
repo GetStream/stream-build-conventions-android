@@ -48,6 +48,13 @@ gradlePlugin {
             description = "Convention plugin for Stream Android application modules"
             tags = listOf("android", "application", "convention", "stream", "kotlin")
         }
+        create("javaLibrary") {
+            id = "io.getstream.java.library"
+            implementationClass = "io.getstream.android.JavaLibraryConventionPlugin"
+            displayName = "Stream Java Library Convention Plugin"
+            description = "Convention plugin for Stream Java/Kotlin JVM library modules"
+            tags = listOf("java", "library", "convention", "stream", "kotlin")
+        }
     }
 }
 
