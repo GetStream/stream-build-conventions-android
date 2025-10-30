@@ -41,7 +41,7 @@ jobs:
           if ! git merge-base --is-ancestor origin/main HEAD; then
             echo "❌ Error: main branch has commits not in develop!"
             echo ""
-            echo "This usually means someone pushed directly into main or a previous release pushed
+            echo "This usually means someone pushed directly into main or a previous release pushed"
             echo "main but failed to push develop. You need to merge main into develop:"
             echo ""
             echo "  git checkout develop"
