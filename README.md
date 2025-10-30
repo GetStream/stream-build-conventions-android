@@ -13,30 +13,50 @@ dependencies, and configurations used across Stream's Android projects.
 
 ## Available Plugins
 
+- **`io.getstream.project`** - Root project configuration (apply to root `build.gradle.kts`)
 - **`io.getstream.android.library`** - For Android library modules
 - **`io.getstream.android.application`** - For Android application modules
+- **`io.getstream.android.test`** - For Android test modules
 - **`io.getstream.java.library`** - For Java/Kotlin JVM library modules
 
 ## Usage
 
-Add the plugin to your project's build file:
+### 1. Root Project Configuration
+
+Apply the root plugin in your root `build.gradle.kts`:
 
 ```kotlin
 plugins {
-    id("io.getstream.android.library") version "<version>"
-    // or
-    id("io.getstream.android.application") version "<version>"
-    // or
-    id("io.getstream.java.library") version "<version>"
+    id("io.getstream.project") version "<version>"
+}
+
+streamProject {
+    // Repository name for GitHub URLs and license headers (default: project name)
+    repositoryName = "stream-chat-android"
+
+    // Choose formatter (default: false = ktlint)
+    useKtfmt = false
+
+    // Exclude specific modules from Spotless formatting (default: empty)
+    spotlessIgnoredModules = setOf("some-module")
+
+    // Exclude file patterns from Spotless formatting (default: empty)
+    spotlessExcludePatterns = setOf("**/generated/**", "**/proto/**")
 }
 ```
 
-## Distribution
+### 2. Module Configuration
 
-These plugins are published to:
+Apply the appropriate plugin to each module:
 
-- [Maven Central](https://central.sonatype.com/)
-- [Gradle Plugin Portal](https://plugins.gradle.org/)
+```kotlin
+plugins {
+    id("io.getstream.android.library")
+    // or id("io.getstream.android.application")
+    // or id("io.getstream.android.test")
+    // or id("io.getstream.java.library")
+}
+```
 
 ## License
 
