@@ -31,6 +31,27 @@ jobs:
         with:
           token: ${{ secrets.STREAM_PUBLIC_BOT_TOKEN }}
           ref: develop
+          fetch-depth: 0
+
+      - name: Verify main is merged into develop
+        run: |
+          git fetch origin main
+          
+          # Check if main is fully merged into develop (i.e., main is an ancestor of develop)
+          if ! git merge-base --is-ancestor origin/main HEAD; then
+            echo "❌ Error: main branch has commits not in develop!"
+            echo ""
+            echo "This usually means someone pushed directly into main or a previous release pushed
+            echo "main but failed to push develop. You need to merge main into develop:"
+            echo ""
+            echo "  git checkout develop"
+            echo "  git merge origin/main"
+            echo "  git push origin develop"
+            echo ""
+            echo "After fixing this, you can retry the release."
+            exit 1
+          fi
+          echo "✅ main is fully merged into develop"
 
       - name: Bump version
         id: bump
