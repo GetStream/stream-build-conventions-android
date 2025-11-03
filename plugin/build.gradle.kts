@@ -1,6 +1,5 @@
 import com.vanniktech.maven.publish.GradlePlugin
 import com.vanniktech.maven.publish.JavadocJar
-import com.vanniktech.maven.publish.SonatypeHost
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -39,7 +38,8 @@ gradlePlugin {
             id = "io.getstream.project"
             implementationClass = "io.getstream.android.RootConventionPlugin"
             displayName = "Stream Root Convention Plugin"
-            description = "Root convention plugin for Stream projects - configures project-wide settings"
+            description =
+                "Root convention plugin for Stream projects - configures project-wide settings"
             tags = listOf("stream", "conventions", "configuration")
         }
         create("androidLibrary") {
@@ -74,7 +74,7 @@ gradlePlugin {
 }
 
 mavenPublishing {
-    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
+    publishToMavenCentral(automaticRelease = true)
     configure(GradlePlugin(javadocJar = JavadocJar.Javadoc(), sourcesJar = true))
 
     pom {

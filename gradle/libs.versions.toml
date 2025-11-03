@@ -5,7 +5,7 @@ detekt = "1.23.8"
 spotless = "8.0.0"
 kotlinDokka = "2.0.0"
 gradlePluginPublish = "2.0.0"
-mavenPublish = "0.32.0"
+mavenPublish = "0.34.0"
 
 [libraries]
 android-gradle-plugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
