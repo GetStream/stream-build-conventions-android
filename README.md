@@ -34,14 +34,16 @@ streamProject {
     // Repository name for GitHub URLs and license headers (default: project name)
     repositoryName = "stream-chat-android"
 
-    // Choose formatter (default: false = ktlint)
-    useKtfmt = false
+    spotless {
+        // Choose formatter (default: false = ktlint)
+        useKtfmt = false
 
-    // Exclude specific modules from Spotless formatting (default: empty)
-    spotlessIgnoredModules = setOf("some-module")
+        // Exclude specific modules from Spotless formatting (default: empty)
+        ignoredModules = setOf("some-module")
 
-    // Exclude file patterns from Spotless formatting (default: empty)
-    spotlessExcludePatterns = setOf("**/generated/**", "**/proto/**")
+        // Exclude file patterns from Spotless formatting (default: empty)
+        excludePatterns = setOf("**/generated/**")
+    }
 }
 ```
 

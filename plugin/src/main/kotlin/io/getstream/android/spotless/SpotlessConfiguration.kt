@@ -13,14 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.getstream.android
+package io.getstream.android.spotless
 
 import com.diffplug.gradle.spotless.SpotlessExtension
+import io.getstream.android.GenerateLicenseFileTask
+import io.getstream.android.requireStreamProjectExtension
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.tasks.TaskContainer
 import org.gradle.kotlin.dsl.configure
-import org.gradle.kotlin.dsl.findByType
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 
@@ -33,7 +34,7 @@ internal fun Project.configureSpotless() {
         val projectExtension = requireStreamProjectExtension()
 
         // Check if Spotless should be disabled for this module
-        if (name in projectExtension.spotlessIgnoredModules.get()) {
+        if (name in projectExtension.spotless.ignoredModules.get()) {
             return@afterEvaluate
         }
 
@@ -41,7 +42,7 @@ internal fun Project.configureSpotless() {
             projectExtension.repositoryName.orNull
                 ?: error("streamProject.repositoryName must be configured in the root project")
 
-        val useKtfmt = projectExtension.useKtfmt.get()
+        val useKtfmt = projectExtension.spotless.useKtfmt.get()
 
         val generateKotlinLicenseTask =
             registerLicenseGenerationTask(
@@ -68,7 +69,7 @@ internal fun Project.configureSpotless() {
                 target("**/*.kt")
                 targetExclude("**/build/**/*.kt")
 
-                projectExtension.spotlessExcludePatterns.orNull
+                projectExtension.spotless.excludePatterns.orNull
                     ?.takeUnless(Set<String>::isEmpty)
                     ?.let { patterns -> targetExclude(*patterns.toTypedArray()) }
 

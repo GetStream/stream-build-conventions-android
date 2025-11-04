@@ -18,6 +18,7 @@ package io.getstream.android
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.api.dsl.LibraryExtension
 import com.android.build.api.dsl.TestExtension
+import io.getstream.android.spotless.configureSpotless
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 

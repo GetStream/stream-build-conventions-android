@@ -15,15 +15,15 @@
  */
 package io.getstream.android
 
+import io.getstream.android.spotless.SpotlessOptions
 import javax.inject.Inject
+import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Property
-import org.gradle.api.provider.SetProperty
 import org.gradle.kotlin.dsl.create
 import org.gradle.kotlin.dsl.findByType
 import org.gradle.kotlin.dsl.property
-import org.gradle.kotlin.dsl.setProperty
 
 /**
  * Extension for configuring Stream project-wide settings. Apply the `io.getstream.project` plugin
@@ -37,16 +37,11 @@ constructor(project: Project, objects: ObjectFactory) {
     val repositoryName: Property<String> =
         objects.property<String>().convention(project.provider { project.rootProject.name })
 
-    /** Whether to apply ktfmt formatting instead of ktlint to Kotlin files. Default: false */
-    val useKtfmt: Property<Boolean> = objects.property<Boolean>().convention(false)
+    /** Spotless formatting configuration */
+    val spotless: SpotlessOptions = objects.newInstance(SpotlessOptions::class.java)
 
-    /** Modules to exclude from Spotless formatting. Default: none */
-    val spotlessIgnoredModules: SetProperty<String> =
-        objects.setProperty<String>().convention(emptySet())
-
-    /** File patterns to exclude from Spotless formatting beyond build files. Default: none */
-    val spotlessExcludePatterns: SetProperty<String> =
-        objects.setProperty<String>().convention(emptySet())
+    /** Configure Spotless formatting */
+    fun spotless(action: Action<SpotlessOptions>) = action.execute(spotless)
 }
 
 internal fun Project.createProjectExtension(): StreamProjectExtension =
