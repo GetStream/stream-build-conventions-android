@@ -1,26 +1,41 @@
-name: Release
+name: Release Workflow
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
       bump:
-        description: 'Version bump type'
+        description: 'Version bump type (major, minor, patch)'
         required: true
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-        default: 'minor'
+        type: string
       version-properties-file:
         description: 'Path to properties file containing version'
         required: false
         type: string
         default: 'gradle.properties'
-
-concurrency:
-  group: release
-  cancel-in-progress: false
+      snapshot:
+        description: 'Whether this is a snapshot release'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      github-token:
+        description: 'GitHub token with repo write permissions'
+        required: true
+      maven-central-username:
+        description: 'Maven Central username'
+        required: true
+      maven-central-password:
+        description: 'Maven Central password'
+        required: true
+      signing-key:
+        description: 'GPG signing key'
+        required: true
+      signing-key-id:
+        description: 'GPG signing key ID'
+        required: true
+      signing-key-password:
+        description: 'GPG signing key password'
+        required: true
 
 jobs:
   publish:
@@ -30,7 +45,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.STREAM_PUBLIC_BOT_TOKEN }}
+          token: ${{ secrets.github-token }}
           ref: develop
           fetch-depth: 0
 
@@ -56,47 +71,52 @@ jobs:
 
       - name: Bump version
         id: bump
-        uses: ./.github/actions/bump-version
+        uses: GetStream/stream-build-conventions-android/.github/actions/bump-version@develop
         with:
-          bump: ${{ github.event.inputs.bump }}
-          file: ${{ github.event.inputs.version-properties-file }}
+          bump: ${{ inputs.bump }}
+          file: ${{ inputs.version-properties-file }}
 
       - name: Commit version file
         uses: EndBug/add-and-commit@v9.1.4
         with:
-          add: ${{ github.event.inputs.version-properties-file }}
+          add: ${{ inputs.version-properties-file }}
           message: "AUTOMATION: Version Bump"
           default_author: github_actions
           push: false
 
       - name: Push changes to ci-release branch
+        if: ${{ !inputs.snapshot }}
         run: git push origin HEAD:ci-release --force-with-lease
 
       - name: Setup Gradle
-        uses: ./.github/actions/setup-gradle
+        uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@develop
         with:
           cache-read-only: false
 
       - name: Build and publish
-        run: ./gradlew build publish --no-configuration-cache
+        run: ./gradlew publish --no-configuration-cache
         env:
-          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.OSSRH_USERNAME }}
-          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.OSSRH_PASSWORD }}
-          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
-          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
-          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_PASSWORD }}
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.maven-central-username }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.maven-central-password }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.signing-key }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.signing-key-id }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.signing-key-password }}
           ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: true
+          # todo Make it a gradle property instead?
+          SNAPSHOT: ${{ inputs.snapshot }}
 
       - name: Create Github Release
+        if: ${{ !inputs.snapshot }}
         uses: ncipollo/release-action@v1.16.0
         with:
           generateReleaseNotes: true
-          token: ${{ secrets.STREAM_PUBLIC_BOT_TOKEN }}
+          token: ${{ secrets.github-token }}
           tag: v${{ steps.bump.outputs.new-version }}
           commit: ci-release
           makeLatest: true
 
   sync_branches:
+    if: ${{ !inputs.snapshot }}
     needs: publish
     name: Sync main and develop with release
     runs-on: ubuntu-latest
@@ -106,7 +126,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-          token: ${{ secrets.STREAM_PUBLIC_BOT_TOKEN }}
+          token: ${{ secrets.github-token }}
 
       - name: Configure git
         run: |
