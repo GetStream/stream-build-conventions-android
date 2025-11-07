@@ -15,6 +15,7 @@
  */
 package io.getstream.android
 
+import io.getstream.android.publishing.PublishingOptions
 import io.getstream.android.spotless.SpotlessOptions
 import javax.inject.Inject
 import org.gradle.api.Action
@@ -23,6 +24,7 @@ import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Property
 import org.gradle.kotlin.dsl.create
 import org.gradle.kotlin.dsl.findByType
+import org.gradle.kotlin.dsl.newInstance
 import org.gradle.kotlin.dsl.property
 
 /**
@@ -38,10 +40,16 @@ constructor(project: Project, objects: ObjectFactory) {
         objects.property<String>().convention(project.provider { project.rootProject.name })
 
     /** Spotless formatting configuration */
-    val spotless: SpotlessOptions = objects.newInstance(SpotlessOptions::class.java)
+    val spotless: SpotlessOptions = objects.newInstance<SpotlessOptions>()
 
     /** Configure Spotless formatting */
     fun spotless(action: Action<SpotlessOptions>) = action.execute(spotless)
+
+    /** Publishing configuration */
+    val publishing: PublishingOptions = objects.newInstance<PublishingOptions>()
+
+    /** Configure publishing */
+    fun publishing(action: Action<PublishingOptions>) = action.execute(publishing)
 }
 
 internal fun Project.createProjectExtension(): StreamProjectExtension =

@@ -17,13 +17,10 @@ package io.getstream.android.spotless
 
 import com.diffplug.gradle.spotless.SpotlessExtension
 import io.getstream.android.GenerateLicenseFileTask
+import io.getstream.android.findOrRegister
 import io.getstream.android.requireStreamProjectExtension
 import org.gradle.api.Project
-import org.gradle.api.Task
-import org.gradle.api.tasks.TaskContainer
 import org.gradle.kotlin.dsl.configure
-import org.gradle.kotlin.dsl.named
-import org.gradle.kotlin.dsl.register
 
 private const val KTLINT_VERSION = "0.50.0"
 
@@ -136,8 +133,3 @@ private fun Project.registerLicenseGenerationTask(
         val outputDir = rootProject.layout.buildDirectory.dir("stream-spotless-config")
         outputFile.set(outputDir.map { it.file(fileName) })
     }
-
-private inline fun <reified T : Task> TaskContainer.findOrRegister(
-    name: String,
-    noinline configuration: T.() -> Unit,
-) = findByName(name)?.let { named<T>(name) } ?: register<T>(name, configuration)
