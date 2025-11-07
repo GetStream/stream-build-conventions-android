@@ -18,6 +18,7 @@ package io.getstream.android
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.api.dsl.LibraryExtension
 import com.android.build.api.dsl.TestExtension
+import io.getstream.android.publishing.configurePublishing
 import io.getstream.android.spotless.configureSpotless
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -58,6 +59,7 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
             configureAndroid<LibraryExtension>()
             configureKotlin()
             configureSpotless()
+            configurePublishing()
         }
     }
 }
@@ -82,6 +84,20 @@ class JavaLibraryConventionPlugin : Plugin<Project> {
             configureJava()
             configureKotlin()
             configureSpotless()
+            configurePublishing()
+        }
+    }
+}
+
+class JavaPlatformConventionPlugin : Plugin<Project> {
+    override fun apply(target: Project) {
+        with(target) {
+            pluginManager.apply("java-platform")
+
+            configureJava()
+            configureKotlin()
+            configureSpotless()
+            configurePublishing()
         }
     }
 }

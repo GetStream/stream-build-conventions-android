@@ -4,18 +4,18 @@ kotlin = "2.0.21"
 detekt = "1.23.8"
 spotless = "8.0.0"
 kotlinDokka = "2.0.0"
-gradlePluginPublish = "2.0.0"
 mavenPublish = "0.34.0"
 
 [libraries]
 android-gradle-plugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
 kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
 spotless-gradle-plugin = { group = "com.diffplug.spotless", name = "spotless-plugin-gradle", version.ref = "spotless" }
+maven-publish-gradle-plugin = { group = "com.vanniktech", name = "gradle-maven-publish-plugin", version.ref = "mavenPublish" }
+dokka-gradle-plugin = { group = "org.jetbrains.dokka", name = "dokka-gradle-plugin", version.ref = "kotlinDokka" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 dokka = { id = "org.jetbrains.dokka-javadoc", version.ref = "kotlinDokka" }
-gradle-plugin-publish = { id = "com.gradle.plugin-publish", version.ref = "gradlePluginPublish" }
 maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "mavenPublish" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

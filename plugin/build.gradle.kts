@@ -24,6 +24,8 @@ dependencies {
     compileOnly(libs.android.gradle.plugin)
     compileOnly(libs.kotlin.gradle.plugin)
     implementation(libs.spotless.gradle.plugin)
+    implementation(libs.maven.publish.gradle.plugin)
+    implementation(libs.dokka.gradle.plugin)
 }
 
 val repoId = "GetStream/stream-build-conventions-android"
@@ -70,12 +72,19 @@ gradlePlugin {
             description = "Convention plugin for Stream Java/Kotlin JVM library modules"
             tags = listOf("java", "library", "convention", "stream", "kotlin")
         }
+        create("javaPlatform") {
+            id = "io.getstream.java.platform"
+            implementationClass = "io.getstream.android.JavaPlatformConventionPlugin"
+            displayName = "Stream Java Platform Convention Plugin"
+            description = "Convention plugin for Stream Java/Kotlin JVM platform modules"
+            tags = listOf("java", "platform", "convention", "stream", "kotlin")
+        }
     }
 }
 
 mavenPublishing {
     publishToMavenCentral(automaticRelease = true)
-    configure(GradlePlugin(javadocJar = JavadocJar.Javadoc(), sourcesJar = true))
+    configure(GradlePlugin(javadocJar = JavadocJar.Dokka("dokkaGenerate"), sourcesJar = true))
 
     pom {
         name.set("Stream Build Conventions")
