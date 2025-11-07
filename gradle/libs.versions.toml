@@ -2,14 +2,15 @@
 agp = "8.11.1"
 kotlin = "2.0.21"
 detekt = "1.23.8"
-spotless = "7.2.1"
+spotless = "8.0.0"
 kotlinDokka = "2.0.0"
 gradlePluginPublish = "2.0.0"
-mavenPublish = "0.32.0"
+mavenPublish = "0.34.0"
 
 [libraries]
 android-gradle-plugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
 kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
+spotless-gradle-plugin = { group = "com.diffplug.spotless", name = "spotless-plugin-gradle", version.ref = "spotless" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

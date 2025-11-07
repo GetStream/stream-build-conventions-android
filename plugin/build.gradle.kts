@@ -1,6 +1,5 @@
 import com.vanniktech.maven.publish.GradlePlugin
 import com.vanniktech.maven.publish.JavadocJar
-import com.vanniktech.maven.publish.SonatypeHost
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -24,6 +23,7 @@ dependencies {
     compileOnly(gradleKotlinDsl())
     compileOnly(libs.android.gradle.plugin)
     compileOnly(libs.kotlin.gradle.plugin)
+    implementation(libs.spotless.gradle.plugin)
 }
 
 val repoId = "GetStream/stream-build-conventions-android"
@@ -34,6 +34,14 @@ gradlePlugin {
     vcsUrl = repoUrl
 
     plugins {
+        create("root") {
+            id = "io.getstream.project"
+            implementationClass = "io.getstream.android.RootConventionPlugin"
+            displayName = "Stream Root Convention Plugin"
+            description =
+                "Root convention plugin for Stream projects - configures project-wide settings"
+            tags = listOf("stream", "conventions", "configuration")
+        }
         create("androidLibrary") {
             id = "io.getstream.android.library"
             implementationClass = "io.getstream.android.AndroidLibraryConventionPlugin"
@@ -48,6 +56,13 @@ gradlePlugin {
             description = "Convention plugin for Stream Android application modules"
             tags = listOf("android", "application", "convention", "stream", "kotlin")
         }
+        create("androidTest") {
+            id = "io.getstream.android.test"
+            implementationClass = "io.getstream.android.AndroidTestConventionPlugin"
+            displayName = "Stream Android Test Convention Plugin"
+            description = "Convention plugin for Stream Android test modules"
+            tags = listOf("android", "test", "convention", "stream", "kotlin")
+        }
         create("javaLibrary") {
             id = "io.getstream.java.library"
             implementationClass = "io.getstream.android.JavaLibraryConventionPlugin"
@@ -59,7 +74,7 @@ gradlePlugin {
 }
 
 mavenPublishing {
-    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
+    publishToMavenCentral(automaticRelease = true)
     configure(GradlePlugin(javadocJar = JavadocJar.Javadoc(), sourcesJar = true))
 
     pom {

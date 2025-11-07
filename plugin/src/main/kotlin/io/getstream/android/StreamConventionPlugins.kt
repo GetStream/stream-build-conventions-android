@@ -17,8 +17,26 @@ package io.getstream.android
 
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.api.dsl.LibraryExtension
+import com.android.build.api.dsl.TestExtension
+import io.getstream.android.spotless.configureSpotless
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+
+/**
+ * Root-level convention plugin for Stream projects. Apply this plugin to the root project to
+ * configure project-wide settings.
+ */
+class RootConventionPlugin : Plugin<Project> {
+    override fun apply(target: Project) {
+        with(target) {
+            require(this == rootProject) {
+                "The io.getstream.project plugin should be applied to the root project only"
+            }
+
+            createProjectExtension()
+        }
+    }
+}
 
 class AndroidApplicationConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
@@ -27,6 +45,7 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
 
             configureAndroid<ApplicationExtension>()
             configureKotlin()
+            configureSpotless()
         }
     }
 }
@@ -38,6 +57,19 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
 
             configureAndroid<LibraryExtension>()
             configureKotlin()
+            configureSpotless()
+        }
+    }
+}
+
+class AndroidTestConventionPlugin : Plugin<Project> {
+    override fun apply(target: Project) {
+        with(target) {
+            pluginManager.apply("com.android.test")
+
+            configureAndroid<TestExtension>()
+            configureKotlin()
+            configureSpotless()
         }
     }
 }
@@ -49,6 +81,7 @@ class JavaLibraryConventionPlugin : Plugin<Project> {
 
             configureJava()
             configureKotlin()
+            configureSpotless()
         }
     }
 }
