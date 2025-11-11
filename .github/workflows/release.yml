@@ -38,7 +38,42 @@ on:
         required: true
 
 jobs:
-  publish:
+  publish-snapshot:
+    if: ${{ inputs.snapshot }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.github-token }}
+          ref: develop
+
+      - name: Bump version
+        id: bump
+        uses: GetStream/stream-build-conventions-android/.github/actions/bump-version@develop
+        with:
+          bump: ${{ inputs.bump }}
+          file: ${{ inputs.version-properties-file }}
+
+      - name: Setup Gradle
+        uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@develop
+        with:
+          cache-read-only: false
+
+      - name: Build and publish snapshot
+        run: ./gradlew publish --no-configuration-cache
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.maven-central-username }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.maven-central-password }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.signing-key }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.signing-key-id }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.signing-key-password }}
+          ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: true
+          SNAPSHOT: true
+
+  publish-release:
+    if: ${{ !inputs.snapshot }}
     runs-on: ubuntu-latest
 
     steps:
@@ -85,7 +120,6 @@ jobs:
           push: false
 
       - name: Push changes to ci-release branch
-        if: ${{ !inputs.snapshot }}
         run: git push origin HEAD:ci-release --force-with-lease
 
       - name: Setup Gradle
@@ -93,7 +127,7 @@ jobs:
         with:
           cache-read-only: false
 
-      - name: Build and publish
+      - name: Build and publish release
         run: ./gradlew publish --no-configuration-cache
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.maven-central-username }}
@@ -102,11 +136,9 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.signing-key-id }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.signing-key-password }}
           ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: true
-          # todo Make it a gradle property instead?
-          SNAPSHOT: ${{ inputs.snapshot }}
+          SNAPSHOT: false
 
       - name: Create Github Release
-        if: ${{ !inputs.snapshot }}
         uses: ncipollo/release-action@v1.16.0
         with:
           generateReleaseNotes: true
@@ -117,7 +149,7 @@ jobs:
 
   sync_branches:
     if: ${{ !inputs.snapshot }}
-    needs: publish
+    needs: publish-release
     name: Sync main and develop with release
     runs-on: ubuntu-latest
     steps:
