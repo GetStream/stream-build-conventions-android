@@ -24,6 +24,8 @@ dependencies {
     compileOnly(libs.android.gradle.plugin)
     compileOnly(libs.kotlin.gradle.plugin)
     implementation(libs.spotless.gradle.plugin)
+    implementation(libs.sonarqube.gradle.plugin)
+    implementation(libs.kover.gradle.plugin)
 }
 
 val repoId = "GetStream/stream-build-conventions-android"
