@@ -44,6 +44,17 @@ streamProject {
         // Exclude file patterns from Spotless formatting (default: empty)
         excludePatterns = setOf("**/generated/**")
     }
+
+    coverage {
+        // Modules to include in coverage analysis (default: empty)
+        includedModules = setOf("some-module", "some-ui-module")
+
+        // Additional Kover exclusion patterns for classes/packages (default: empty)
+        koverClassExclusions = listOf("*SomeClass", "io.getstream.some.package.*")
+
+        // Additional Sonar coverage exclusion patterns for file paths (default: empty)
+        sonarCoverageExclusions = listOf("**/io/getstream/some/package/**")
+    }
 }
 ```
 
