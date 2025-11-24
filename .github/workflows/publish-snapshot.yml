@@ -1,20 +1,13 @@
-name: Publish new version
+name: Publish Snapshot builds
 
 on:
+  push:
+    branches:
+      - develop
   workflow_dispatch:
-    inputs:
-      bump:
-        description: 'Version bump type'
-        required: true
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-        default: minor
 
 concurrency:
-  group: release
+  group: snapshot-release
   cancel-in-progress: false
 
 jobs:
@@ -23,7 +16,8 @@ jobs:
       contents: write
     uses: ./.github/workflows/release.yml
     with:
-      bump: ${{ inputs.bump }}
+      bump: patch
+      snapshot: true
     secrets:
       github-token: ${{ secrets.STREAM_PUBLIC_BOT_TOKEN }}
       maven-central-username: ${{ secrets.OSSRH_USERNAME }}
