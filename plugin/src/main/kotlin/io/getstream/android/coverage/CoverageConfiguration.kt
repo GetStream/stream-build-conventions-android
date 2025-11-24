@@ -85,7 +85,7 @@ private fun Project.configureSonar(extension: StreamProjectExtension) {
             property(
                 "sonar.coverage.jacoco.xmlReportPaths",
                 layout.buildDirectory
-                    .file("/reports/kover/report${KoverConstants.VARIANT_SUFFIX}.xml")
+                    .file("reports/kover/report${KoverConstants.VARIANT_SUFFIX}.xml")
                     .get(),
             )
         }
@@ -103,12 +103,13 @@ private fun Project.setupKoverDependencyOnModules(includedModules: Set<String>) 
 internal fun Project.configureCoverageModule() {
     val coverageOptions = requireStreamProjectExtension().coverage
 
+    pluginManager.apply("org.sonarqube")
+
     // Only configure coverage for included modules
     if (name !in coverageOptions.includedModules.get()) {
+        extensions.configure<SonarExtension> { isSkipProject = true }
         return
     }
-
-    pluginManager.apply("org.sonarqube")
 
     // Configure Android test coverage if this is an Android module
     pluginManager.withPlugin("com.android.library") { configureAndroid<LibraryExtension>() }
