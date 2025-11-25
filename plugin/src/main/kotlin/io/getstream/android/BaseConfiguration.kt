@@ -46,6 +46,10 @@ internal inline fun <reified Ext : CommonExtension<*, *, *, *, *, *>> Project.co
                 all(Test::configureTestLogging)
             }
         }
+
+        // Add Kotlin source directories to Android source sets. Useful, for example, for letting
+        // them being picked up in Sonar analyses.
+        sourceSets { all { java.srcDir("src/$name/kotlin") } }
     }
 
     tasks.withType<JavaCompile>().configureEach {
