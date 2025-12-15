@@ -47,7 +47,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.github-token }}
-          ref: develop
 
       - name: Bump version
         id: bump
