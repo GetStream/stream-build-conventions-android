@@ -146,6 +146,16 @@ jobs:
           commit: ci-release
           makeLatest: true
 
+      - name: Generate Dokka HTML docs
+        run: ./gradlew dokkaHtmlMultimodule
+
+      - name: Publish docs to GitHub pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.github-token }}
+          publish_dir: ./build/dokka/htmlMultiModule
+          publish_branch: gh-pages
+
   sync_branches:
     if: ${{ !inputs.snapshot }}
     needs: publish-release
