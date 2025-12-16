@@ -20,7 +20,8 @@ import com.android.build.api.dsl.LibraryExtension
 import com.android.build.api.dsl.TestExtension
 import io.getstream.android.coverage.configureCoverageModule
 import io.getstream.android.coverage.configureCoverageRoot
-import io.getstream.android.publishing.configurePublishing
+import io.getstream.android.publishing.configurePublishingModule
+import io.getstream.android.publishing.configurePublishingRoot
 import io.getstream.android.spotless.configureSpotless
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -38,6 +39,7 @@ class RootConventionPlugin : Plugin<Project> {
 
             createProjectExtension()
             configureCoverageRoot()
+            configurePublishingRoot()
         }
     }
 }
@@ -64,7 +66,7 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
             configureKotlin()
             configureSpotless()
             configureCoverageModule()
-            configurePublishing()
+            configurePublishingModule()
         }
     }
 }
@@ -90,7 +92,7 @@ class JavaLibraryConventionPlugin : Plugin<Project> {
             configureKotlin()
             configureSpotless()
             configureCoverageModule()
-            configurePublishing()
+            configurePublishingModule()
         }
     }
 }
@@ -103,7 +105,7 @@ class JavaPlatformConventionPlugin : Plugin<Project> {
             configureJava()
             configureKotlin()
             configureSpotless()
-            configurePublishing()
+            configurePublishingModule()
         }
     }
 }

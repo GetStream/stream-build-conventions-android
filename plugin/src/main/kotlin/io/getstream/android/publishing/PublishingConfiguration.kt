@@ -36,7 +36,11 @@ import org.gradle.kotlin.dsl.findByType
 
 private const val groupId = "io.getstream"
 
-internal fun Project.configurePublishing() {
+internal fun Project.configurePublishingRoot() {
+    pluginManager.apply("org.jetbrains.dokka")
+}
+
+internal fun Project.configurePublishingModule() {
     val projectExtension = requireStreamProjectExtension()
     val artifactId = getArtifactId(projectExtension.publishing)
 
