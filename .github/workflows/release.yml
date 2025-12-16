@@ -50,13 +50,13 @@ jobs:
 
       - name: Bump version
         id: bump
-        uses: GetStream/stream-build-conventions-android/.github/actions/bump-version@develop
+        uses: GetStream/stream-build-conventions-android/.github/actions/bump-version@main
         with:
           bump: ${{ inputs.bump }}
           file: ${{ inputs.version-properties-file }}
 
       - name: Setup Gradle
-        uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@develop
+        uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
         with:
           cache-read-only: false
 
@@ -105,7 +105,7 @@ jobs:
 
       - name: Bump version
         id: bump
-        uses: GetStream/stream-build-conventions-android/.github/actions/bump-version@develop
+        uses: GetStream/stream-build-conventions-android/.github/actions/bump-version@main
         with:
           bump: ${{ inputs.bump }}
           file: ${{ inputs.version-properties-file }}
@@ -122,7 +122,7 @@ jobs:
         run: git push origin HEAD:ci-release --force-with-lease
 
       - name: Setup Gradle
-        uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@develop
+        uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
         with:
           cache-read-only: false
 
