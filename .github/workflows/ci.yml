@@ -10,8 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  format:
-    name: Check formatting
+  static-checks:
+    name: Run static checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,22 +22,11 @@ jobs:
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
 
-      - name: Check formatting
+      - name: Spotless
         run: ./gradlew spotlessCheck
 
-  lint:
-    name: Run detekt
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Gradle
-        uses: ./.github/actions/setup-gradle
-        with:
-          cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
-
-      - name: Run detekt
+      - name: Detekt
+        if: always()
         run: ./gradlew detekt
 
   build:
@@ -54,3 +43,10 @@ jobs:
 
       - name: Build and validate
         run: ./gradlew build :plugin:validatePlugins
+
+  validate-workflows:
+    name: Run actionlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: raven-actions/actionlint@v2.1.0
