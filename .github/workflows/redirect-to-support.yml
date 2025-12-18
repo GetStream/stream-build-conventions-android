@@ -1,0 +1,36 @@
+name: Redirect issues to Stream support
+
+on:
+  workflow_call:
+
+permissions:
+  issues: write
+
+jobs:
+  add-comment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment and close issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Add comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `Hello @${{ github.event.issue.user.login }}! Thanks for creating this issue. ` +
+                `We currently don't offer direct support via GitHub issues. Please contact us ` +
+                `through our [support channel](https://beta.dashboard.getstream.io/contact/support/) so ` +
+                `the issue can be properly triaged and directed to the relevant team.\n\n` +
+                `Thanks a lot!`
+            });
+            
+            // Close issue
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed',
+              state_reason: 'not_planned'
+            });
