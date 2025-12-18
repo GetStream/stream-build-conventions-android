@@ -1,0 +1,165 @@
+name: PR checklist
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  pr-checklist:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate PR quality
+        id: validate
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+          LABELS_CSV: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          set -euo pipefail
+
+          failures=""
+
+          # ---- Settings ----
+          MIN_WORDS=5
+          MAX_WORDS=18
+          TITLE_BYPASS_LABEL="pr:ignore-for-release"
+
+          has_label () {
+            case ",${LABELS_CSV}," in
+              *,"$1",*) return 0 ;;
+              *) return 1 ;;
+            esac
+          }
+
+          has_any_pr_label () {
+            IFS=',' read -ra LBL <<< "${LABELS_CSV}"
+            for l in "${LBL[@]}"; do
+              l="$(echo "$l" | xargs)"
+              [[ $l == pr:* ]] && return 0
+            done
+            return 1
+          }
+
+          # --- 1) Title check
+          if ! has_label "$TITLE_BYPASS_LABEL"; then
+            title_words=$(echo "$TITLE" | tr -s '[:space:]' ' ' | sed -e 's/^ *//' -e 's/ *$//' | wc -w | xargs)
+            if [ -z "$title_words" ]; then title_words=0; fi
+            if [ "$title_words" -lt "$MIN_WORDS" ] || [ "$title_words" -gt "$MAX_WORDS" ]; then
+              failures="${failures}\n- **Title** should be ${MIN_WORDS}–${MAX_WORDS} words for release notes. Current: ${title_words} word(s). (Add \`${TITLE_BYPASS_LABEL}\` to bypass.)"
+            fi
+          fi
+
+          # --- 2) Has pr:* label
+          if ! has_any_pr_label; then
+            failures="${failures}\n- Missing required label: at least one label starting with \`pr:\`."
+          fi
+
+          # --- 3) Sections non-empty
+          section_nonempty () {
+            local hdr="$1"
+            local section
+            section="$(printf "%s" "$BODY" | awk -v h="^###[[:space:]]*$hdr[[:space:]]*$" '
+              BEGIN { insec=0 }
+              $0 ~ h { insec=1; next }
+              insec && $0 ~ /^##[[:space:]]/ { insec=0 }
+              insec { print }
+            ')"
+            section="$(printf "%s" "$section" \
+              | sed -E 's/<!--(.|\n)*?-->//g' \
+              | sed -E 's/^[[:space:]]+|[[:space:]]+$//g' \
+              | sed '/^[[:space:]]*$/d')"
+            [ -n "$section" ]
+          }
+
+          for hdr in Goal Implementation Testing; do
+            if ! section_nonempty "$hdr"; then
+              failures="${failures}\n- Section **${hdr}** is missing or empty."
+            fi
+          done
+
+          if [ -n "$failures" ]; then
+            echo "has_failures=true" >> "$GITHUB_OUTPUT"
+            {
+              echo 'failures<<EOF'
+              printf "%b\n" "$failures"
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
+            exit 1
+          else
+            echo "has_failures=false" >> "$GITHUB_OUTPUT"
+          fi
+
+            # Compute the latest sticky comment id (by our anchor). If none, output is empty.
+      - name: Compute sticky comment id
+        if: always()
+        id: sticky_comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const anchor = "<!-- pr-quality-anchor -->"; // must match the body below
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+
+            // Get up to 100 comments; paginate to be safe.
+            const comments = await github.paginate(
+              github.rest.issues.listComments,
+              { owner, repo, issue_number, per_page: 100 }
+            );
+
+            const matches = comments.filter(c => (c.body || "").includes(anchor));
+            if (matches.length === 0) {
+              core.setOutput("comment_id", "");
+              return;
+            }
+            // Pick the most recently updated one
+            matches.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+            core.setOutput("comment_id", String(matches[0].id));
+
+      - name: Sticky comment id
+        if: always()
+        run: echo "sticky comment-id=${{ steps.sticky_comment.outputs.comment_id }}"
+
+      # Update/create the sticky comment on failure
+      - name: Create or update failure comment
+        if: failure()
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-id: ${{ steps.sticky_comment.outputs.comment_id }}   # empty => creates new
+          edit-mode: replace
+          body: |
+            <!-- pr-quality-anchor -->
+            ### PR checklist ❌
+
+            The following issues were detected:
+
+            ${{ steps.validate.outputs.failures }}
+
+            **What we check**
+            1. Title is concise (5–18 words) unless labeled `pr:ignore-for-release`.
+            2. At least one `pr:` label exists (e.g., `pr:bug`, `pr:new-feature`).
+            3. Sections `### Goal`, `### Implementation`, and `### Testing` contain content.
+
+      # Flip the same sticky comment to ✅ on success
+      - name: Create or update success comment
+        if: success()
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-id: ${{ steps.sticky_comment.outputs.comment_id }}   # updates if found
+          edit-mode: replace
+          body: |
+            <!-- pr-quality-anchor -->
+            ### PR checklist ✅
+
+            All required conditions are satisfied:
+            - Title length is OK (or ignored by label).
+            - At least one `pr:` label exists.
+            - Sections `### Goal`, `### Implementation`, and `### Testing` are filled.
+
+            🎉 Great job! This PR is ready for review.

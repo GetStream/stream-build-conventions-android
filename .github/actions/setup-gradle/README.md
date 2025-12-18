@@ -17,13 +17,13 @@ A reusable composite action that sets up Java and Gradle.
   uses: actions/checkout@v4
 
 - name: Setup Gradle
-  uses: ./.github/actions/setup-gradle
+  uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
 ```
 
 ### CI Workflow (write cache for main/develop)
 ```yaml
 - name: Setup Gradle
-  uses: ./.github/actions/setup-gradle
+  uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
   with:
     cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
 ```
@@ -31,7 +31,7 @@ A reusable composite action that sets up Java and Gradle.
 ### Release Workflow (write cache)
 ```yaml
 - name: Setup Gradle
-  uses: ./.github/actions/setup-gradle
+  uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
   with:
     cache-read-only: false
 ```

@@ -25,7 +25,7 @@ The action reads the version from a file, bumps it, and writes it back:
 ```yaml
 - name: Bump version
   id: bump
-  uses: ./.github/actions/bump-version
+  uses: GetStream/stream-build-conventions-android/.github/actions/bump-version@main
   with:
     bump: patch
     # file defaults to gradle.properties
@@ -41,7 +41,7 @@ For non-standard file paths or version keys:
 ```yaml
 - name: Bump version
   id: bump
-  uses: ./.github/actions/bump-version
+  uses: GetStream/stream-build-conventions-android/.github/actions/bump-version@main
   with:
     bump: minor
     file: custom/path/version.properties

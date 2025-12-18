@@ -1,0 +1,30 @@
+name: Close stale PRs
+
+on:
+  workflow_call:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: close-stale-prs
+  cancel-in-progress: false
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Mark and close stale PRs"
+        uses: actions/stale@v9
+        with:
+          days-before-pr-stale: 14
+          days-before-pr-close: 7
+          stale-pr-message: "This pull request has been automatically marked as stale because it has been inactive for 14 days. It will be closed in 7 days if no further activity occurs."
+          close-pr-message: "This pull request was closed because it has been stalled for 7 days with no activity. Please reopen if you still intend to submit this change."
+          exempt-pr-labels: 'pr:keep-open'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          days-before-stale: -1 # skip marking issues as stale
+          days-before-close: -1 # skip closing issues
