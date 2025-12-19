@@ -42,7 +42,7 @@ jobs:
         uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
 
       - name: Assemble release for metrics
-        run: ./gradlew :metrics:$METRICS_PROJECT:assembleRelease
+        run: ./gradlew :metrics:"$METRICS_PROJECT":assembleRelease
         env:
           BUILD_CACHE_AWS_REGION: ${{ secrets.BUILD_CACHE_AWS_REGION }}
           BUILD_CACHE_AWS_BUCKET: ${{ secrets.BUILD_CACHE_AWS_BUCKET }}
@@ -54,8 +54,8 @@ jobs:
           # Reads current SDK sizes from the metrics file
           # and define to a variable using a compact JSON format
           # so it can be exported for the next job step
-          CURRENT_SDK_SIZES=$(jq -c .release $METRICS_FILE)
-          echo "CURRENT_SDK_SIZES=$CURRENT_SDK_SIZES" >> $GITHUB_ENV
+          CURRENT_SDK_SIZES=$(jq -c .release "$METRICS_FILE")
+          echo "CURRENT_SDK_SIZES=$CURRENT_SDK_SIZES" >> "$GITHUB_ENV"
 
       - name: Calculate PR branch SDK sizes
         run: |
@@ -74,7 +74,7 @@ jobs:
             jq -c --arg sdk "$module" --arg size "$size" '. + {($sdk): ($size | tonumber)}' pr_sdk_sizes.json > temp.json && mv temp.json pr_sdk_sizes.json
           done
 
-          echo "PR_SDK_SIZES=$(cat pr_sdk_sizes.json)" >> $GITHUB_ENV
+          echo "PR_SDK_SIZES=$(cat pr_sdk_sizes.json)" >> "$GITHUB_ENV"
 
       - name: Post a comment or print size comparison
         uses: actions/github-script@v7
