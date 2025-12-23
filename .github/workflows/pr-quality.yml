@@ -40,7 +40,7 @@ jobs:
             IFS=',' read -ra LBL <<< "${LABELS_CSV}"
             for l in "${LBL[@]}"; do
               l="$(echo "$l" | xargs)"
-              [[ $l == pr:* ]] && return 0
+              [[ "$l" == pr:* ]] && return 0
             done
             return 1
           }
@@ -63,7 +63,7 @@ jobs:
           section_nonempty () {
             local hdr="$1"
             local section
-            section="$(printf "%s" "$BODY" | awk -v h="^###[[:space:]]*$hdr[[:space:]]*$" '
+            section="$(printf "%s" "$BODY" | awk -v h="^###[[:space:]]*${hdr}[[:space:]]*$" '
               BEGIN { insec=0 }
               $0 ~ h { insec=1; next }
               insec && $0 ~ /^##[[:space:]]/ { insec=0 }

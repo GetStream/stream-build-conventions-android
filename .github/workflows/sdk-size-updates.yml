@@ -44,7 +44,7 @@ jobs:
         uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
 
       - name: Assemble release and debug for metrics
-        run: ./gradlew :metrics:$METRICS_PROJECT:assemble
+        run: ./gradlew :metrics:"$METRICS_PROJECT":assemble
         env:
           BUILD_CACHE_AWS_REGION: ${{ secrets.BUILD_CACHE_AWS_REGION }}
           BUILD_CACHE_AWS_BUCKET: ${{ secrets.BUILD_CACHE_AWS_BUCKET }}
@@ -82,12 +82,12 @@ jobs:
           jq . metrics.json
           
           # Move temporary JSON file to the final file
-          mv metrics.json $METRICS_FILE
+          mv metrics.json "$METRICS_FILE"
 
       - name: Update size badges
         run: |
           for module in $MODULES; do
-            size=$(jq --arg module "$module" ".release.\"$module\"" $METRICS_FILE)
+            size=$(jq --arg module "$module" ".release.\"$module\"" "$METRICS_FILE")
             sizeInMb=$(echo "scale=2; $size / 1024" | bc)
             badgeUrl="https://img.shields.io/badge/${module//-/--}-$sizeInMb%20MB-lightgreen"
             sed -i "s|!\[$module\](.*)|![$module](${badgeUrl})|" README.md
@@ -97,13 +97,13 @@ jobs:
         run: |
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_PAT }}@github.com/${{ github.repository }}.git
 
-          git fetch origin $BRANCH_NAME
-          git checkout $BRANCH_NAME
+          git fetch origin "$BRANCH_NAME"
+          git checkout "$BRANCH_NAME"
           
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"         
 
-          git add $METRICS_FILE README.md
+          git add "$METRICS_FILE" README.md
           git commit -m "[skip ci] Update SDK sizes" || echo "No changes to commit"
 
       - name: Push changes

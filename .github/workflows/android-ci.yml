@@ -1,0 +1,85 @@
+name: Android CI
+
+on:
+  workflow_call:
+    inputs:
+      api-check:
+        description: 'Whether to run API checks'
+        required: false
+        type: boolean
+        default: true
+
+    secrets:
+      BUILD_CACHE_AWS_REGION:
+        required: false
+      BUILD_CACHE_AWS_BUCKET:
+        required: false
+      BUILD_CACHE_AWS_ACCESS_KEY_ID:
+        required: false
+      BUILD_CACHE_AWS_SECRET_KEY:
+        required: false
+      SONAR_TOKEN:
+        required: false
+
+env:
+  BUILD_CACHE_AWS_REGION: ${{ secrets.BUILD_CACHE_AWS_REGION }}
+  BUILD_CACHE_AWS_BUCKET: ${{ secrets.BUILD_CACHE_AWS_BUCKET }}
+  BUILD_CACHE_AWS_ACCESS_KEY_ID: ${{ secrets.BUILD_CACHE_AWS_ACCESS_KEY_ID }}
+  BUILD_CACHE_AWS_SECRET_KEY: ${{ secrets.BUILD_CACHE_AWS_SECRET_KEY }}
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
+      - name: Build
+        run: ./gradlew assembleDebug --scan
+
+  static-checks:
+    name: Run static checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
+      - name: Spotless
+        run: ./gradlew spotlessCheck
+      - name: Lint
+        if: always()
+        run: ./gradlew lint
+      - name: API check
+        if: always() && inputs.api-check
+        run: ./gradlew apiCheck
+
+  unit-test:
+    name: Run unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # For Sonar analysis
+      - uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
+      - name: Run unit tests
+        run: ./gradlew testCoverage --scan --stacktrace
+      - name: Upload tests results
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: unit-tests-results
+          path: ./**/build/reports/tests/**
+      - name: Sonar
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        run: ./gradlew sonar
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - name: Sonar skipped if PR from fork
+        if: github.event.pull_request.head.repo.full_name != github.repository
+        run: echo "⚠️ Sonar skipped because the PR comes from a fork."
+
+  validate-workflows:
+    name: Run actionlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: raven-actions/actionlint@v2.1.0
