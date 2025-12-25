@@ -1,7 +1,9 @@
 plugins {
     base
-    alias(libs.plugins.detekt) apply true
-    alias(libs.plugins.spotless) apply true
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.detekt)
+    alias(libs.plugins.spotless)
+    alias(libs.plugins.dokka)
 }
 
 val isSnapshot = System.getenv("SNAPSHOT")?.toBoolean() == true
