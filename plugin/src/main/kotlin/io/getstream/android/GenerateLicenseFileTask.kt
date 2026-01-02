@@ -16,6 +16,7 @@
 package io.getstream.android
 
 import java.io.BufferedReader
+import java.time.Year
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
@@ -61,6 +62,10 @@ abstract class GenerateLicenseFileTask : DefaultTask() {
         outputFile
             .get()
             .asFile
-            .writeText(templateContent.replace("\$PROJECT", repositoryName.get()))
+            .writeText(
+                templateContent
+                    .replace("\$PROJECT", repositoryName.get())
+                    .replace("\$YEAR", "${Year.now()}")
+            )
     }
 }
