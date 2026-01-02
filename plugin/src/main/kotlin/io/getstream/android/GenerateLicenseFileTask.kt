@@ -36,17 +36,25 @@ import org.gradle.api.tasks.TaskAction
  */
 @CacheableTask
 abstract class GenerateLicenseFileTask : DefaultTask() {
-    @get:Input abstract val repositoryName: Property<String>
+    @get:Input
+    abstract val repositoryName: Property<String>
 
-    @get:Input abstract val templateName: Property<String>
+    @get:Input
+    abstract val templateName: Property<String>
+
+    // Added as input so the cache is invalidated when the year changes
+    @get:Input
+    val currentYear: Int get() = Year.now().value
 
     /**
      * The classpath containing the plugin resources (the plugin JAR itself). Used to track changes
      * to the template files so the task is re-run.
      */
-    @get:Classpath abstract val pluginClasspath: ConfigurableFileCollection
+    @get:Classpath
+    abstract val pluginClasspath: ConfigurableFileCollection
 
-    @get:OutputFile abstract val outputFile: RegularFileProperty
+    @get:OutputFile
+    abstract val outputFile: RegularFileProperty
 
     @TaskAction
     fun generate() {
@@ -65,7 +73,7 @@ abstract class GenerateLicenseFileTask : DefaultTask() {
             .writeText(
                 templateContent
                     .replace("\$PROJECT", repositoryName.get())
-                    .replace("\$YEAR", "${Year.now()}")
+                    .replace("\$YEAR", "$currentYear")
             )
     }
 }
