@@ -1,0 +1,8 @@
+$dokka.format:html-v1
+$dokka.linkExtension:html
+
+module:plugin
+io.getstream.android
+io.getstream.android.coverage
+io.getstream.android.publishing
+io.getstream.android.spotless
