@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2025 Stream.io Inc. All rights reserved.
+ * Copyright (c) 2014-2026 Stream.io Inc. All rights reserved.
  *
  * Licensed under the Stream License;
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package io.getstream.android
 
 import java.io.BufferedReader
+import java.time.Year
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
@@ -39,6 +40,11 @@ abstract class GenerateLicenseFileTask : DefaultTask() {
 
     @get:Input abstract val templateName: Property<String>
 
+    // Added as input so the cache is invalidated when the year changes
+    @get:Input
+    val currentYear: Int
+        get() = Year.now().value
+
     /**
      * The classpath containing the plugin resources (the plugin JAR itself). Used to track changes
      * to the template files so the task is re-run.
@@ -61,6 +67,10 @@ abstract class GenerateLicenseFileTask : DefaultTask() {
         outputFile
             .get()
             .asFile
-            .writeText(templateContent.replace("\$PROJECT", repositoryName.get()))
+            .writeText(
+                templateContent
+                    .replace("\$PROJECT", repositoryName.get())
+                    .replace("\$YEAR", "$currentYear")
+            )
     }
 }
