@@ -60,6 +60,9 @@ streamProject {
         moduleArtifactIdOverrides = mapOf(
             "my-module" to "custom-artifact-id"
         )
+
+        // Optional: Exclude specific modules from publishing (default: empty)
+        ignoredModules = setOf("internal-module", "test-fixtures")
     }
 }
 ```
