@@ -19,8 +19,10 @@ import javax.inject.Inject
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.provider.SetProperty
 import org.gradle.kotlin.dsl.mapProperty
 import org.gradle.kotlin.dsl.property
+import org.gradle.kotlin.dsl.setProperty
 
 abstract class PublishingOptions @Inject constructor(objects: ObjectFactory) {
     /** Description of the project. Used for published artifacts. */
@@ -32,4 +34,7 @@ abstract class PublishingOptions @Inject constructor(objects: ObjectFactory) {
      */
     val moduleArtifactIdOverrides: MapProperty<String, String> =
         objects.mapProperty<String, String>().convention(emptyMap())
+
+    /** Set of module names to exclude from publishing. */
+    val ignoredModules: SetProperty<String> = objects.setProperty<String>().convention(emptySet())
 }

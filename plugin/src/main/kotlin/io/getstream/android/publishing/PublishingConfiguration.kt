@@ -42,6 +42,11 @@ internal fun Project.configurePublishingRoot() {
 
 internal fun Project.configurePublishingModule() {
     val projectExtension = requireStreamProjectExtension()
+
+    if (name in projectExtension.publishing.ignoredModules.get()) {
+        return
+    }
+
     val artifactId = getArtifactId(projectExtension.publishing)
 
     pluginManager.apply("com.vanniktech.maven.publish")
