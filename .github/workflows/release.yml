@@ -146,6 +146,31 @@ jobs:
           commit: ci-release
           makeLatest: true
 
+      - name: Label released PRs
+        env:
+          GH_TOKEN: ${{ secrets.github-token }}
+        run: |
+          # Ensure the 'released' label exists
+          gh label create "released" --color "1D76DB" --description "Included in a release" --force
+
+          # Get previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          CURRENT_TAG="v${{ steps.bump.outputs.new-version }}"
+
+          # Find PR numbers from merge commits between tags
+          if [ -n "$PREV_TAG" ]; then
+            RANGE="$PREV_TAG..$CURRENT_TAG"
+          else
+            RANGE="$CURRENT_TAG"
+          fi
+
+          # Extract PR numbers from merge commit messages and label them
+          git log --merges --pretty=format:"%s" $RANGE | grep -oE '#[0-9]+' | tr -d '#' | sort -u | while read pr; do
+            if [ -n "$pr" ]; then
+              gh pr edit "$pr" --add-label "released" 2>/dev/null || true
+            fi
+          done
+
       - name: Generate Dokka HTML docs
         run: ./gradlew dokkaHtmlMultimodule
 
