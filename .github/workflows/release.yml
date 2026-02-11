@@ -168,7 +168,8 @@ jobs:
           git log --merges --pretty=format:"%s" $RANGE | grep -oE '#[0-9]+' | tr -d '#' | sort -u | while read pr; do
             if [ -n "$pr" ]; then
               gh pr edit "$pr" --add-label "released" 2>/dev/null || true
-              gh pr comment "$pr" --body "🚀 Available in $CURRENT_TAG" 2>/dev/null || true
+              RELEASE_URL="${{ github.server_url }}/${{ github.repository }}/releases/tag/$CURRENT_TAG"
+              gh pr comment "$pr" --body "🚀 Available in [$CURRENT_TAG]($RELEASE_URL)" 2>/dev/null || true
             fi
           done
 
