@@ -165,7 +165,7 @@ jobs:
           fi
 
           # Extract PR numbers from merge commit messages, label them, and add comment
-          git log --merges --pretty=format:"%s" $RANGE | grep -oE '#[0-9]+' | tr -d '#' | sort -u | while read pr; do
+          git log --merges --pretty=format:"%s" "$RANGE" | grep -oE '#[0-9]+' | tr -d '#' | sort -u | while read -r pr; do
             if [ -n "$pr" ]; then
               gh pr edit "$pr" --add-label "released" 2>/dev/null || true
               RELEASE_URL="${{ github.server_url }}/${{ github.repository }}/releases/tag/$CURRENT_TAG"
