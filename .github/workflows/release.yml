@@ -157,15 +157,15 @@ jobs:
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           CURRENT_TAG="v${{ steps.bump.outputs.new-version }}"
 
-          # Find PR numbers from merge commits between tags
+          # Find PR numbers from commits between previous tag and HEAD
           if [ -n "$PREV_TAG" ]; then
-            RANGE="$PREV_TAG..$CURRENT_TAG"
+            RANGE="$PREV_TAG..HEAD"
           else
-            RANGE="$CURRENT_TAG"
+            RANGE="HEAD"
           fi
 
-          # Extract PR numbers from merge commit messages, label them, and add comment
-          git log --merges --pretty=format:"%s" "$RANGE" | grep -oE '#[0-9]+' | tr -d '#' | sort -u | while read -r pr; do
+          # Extract PR numbers from commit messages, label them, and add comment
+          git log --pretty=format:"%s" "$RANGE" | grep -oE '#[0-9]+' | tr -d '#' | sort -u | while read -r pr; do
             if [ -n "$pr" ]; then
               gh pr edit "$pr" --add-label "released" 2>/dev/null || true
               RELEASE_URL="${{ github.server_url }}/${{ github.repository }}/releases/tag/$CURRENT_TAG"
