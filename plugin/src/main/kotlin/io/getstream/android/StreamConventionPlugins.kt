@@ -37,7 +37,12 @@ class RootConventionPlugin : Plugin<Project> {
                 "The io.getstream.project plugin should be applied to the root project only"
             }
 
-            createProjectExtension()
+            val extension = createProjectExtension()
+            afterEvaluate {
+                requireNotNull(extension.repositoryName.orNull) {
+                    "streamProject.repositoryName must be configured in the root project"
+                }
+            }
             configureCoverageRoot()
             configurePublishingRoot()
         }

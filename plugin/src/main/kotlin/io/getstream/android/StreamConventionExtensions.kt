@@ -32,13 +32,10 @@ import org.gradle.kotlin.dsl.property
  * Extension for configuring Stream project-wide settings. Apply the `io.getstream.project` plugin
  * to the root project to use this extension.
  */
-abstract class StreamProjectExtension
-@Inject
-constructor(project: Project, objects: ObjectFactory) {
+abstract class StreamProjectExtension @Inject constructor(objects: ObjectFactory) {
 
     /** The repository name used for inferring the repository URL. Example: "stream-core-android" */
-    val repositoryName: Property<String> =
-        objects.property<String>().convention(project.provider { project.rootProject.name })
+    val repositoryName: Property<String> = objects.property<String>()
 
     /** Spotless formatting configuration */
     val spotless: SpotlessOptions = objects.newInstance<SpotlessOptions>()

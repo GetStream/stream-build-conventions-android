@@ -35,10 +35,7 @@ internal fun Project.configureSpotless() {
             return@afterEvaluate
         }
 
-        val repositoryName =
-            projectExtension.repositoryName.orNull
-                ?: error("streamProject.repositoryName must be configured in the root project")
-
+        val repositoryName = projectExtension.repositoryName.get()
         val useKtfmt = projectExtension.spotless.useKtfmt.get()
 
         val generateKotlinLicenseTask =
