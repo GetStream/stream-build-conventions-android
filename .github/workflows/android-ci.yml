@@ -61,7 +61,7 @@ jobs:
           fetch-depth: 0 # For Sonar analysis
       - uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
       - name: Run unit tests
-        run: ./gradlew testCoverage --scan --stacktrace
+        run: ./gradlew :testCoverage --scan --stacktrace
       - name: Upload tests results
         uses: actions/upload-artifact@v4
         if: failure()
