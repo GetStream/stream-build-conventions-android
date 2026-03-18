@@ -159,6 +159,10 @@ jobs:
           ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: true
           SNAPSHOT: false
 
+      - name: Resolve release commit SHA
+        id: release-commit
+        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
       - name: Push version bump to source branch
         run: git push origin HEAD:${{ github.ref_name }}
 
@@ -168,7 +172,7 @@ jobs:
           generateReleaseNotes: true
           token: ${{ secrets.github-token }}
           tag: ${{ steps.tag.outputs.name }}
-          commit: ${{ steps.commit.outputs.commit_long_sha }}
+          commit: ${{ steps.release-commit.outputs.sha }}
           makeLatest: ${{ inputs.suffix == '' && github.ref_name == 'develop' }}
           prerelease: ${{ inputs.suffix != '' }}
 
