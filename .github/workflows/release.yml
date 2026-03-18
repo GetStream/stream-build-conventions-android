@@ -119,6 +119,17 @@ jobs:
           file: ${{ inputs.version-properties-file }}
           suffix: ${{ inputs.suffix }}
 
+      - name: Check tag doesn't already exist
+        env:
+          GH_TOKEN: ${{ secrets.github-token }}
+        run: |
+          TAG="v${{ steps.bump.outputs.new-version }}"
+          if gh release view "$TAG" &>/dev/null; then
+            echo "❌ Error: Release $TAG already exists!"
+            exit 1
+          fi
+          echo "✅ Tag $TAG is available"
+
       - name: Commit version file
         uses: EndBug/add-and-commit@v9.1.4
         with:
