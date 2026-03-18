@@ -135,7 +135,6 @@ jobs:
           echo "✅ Tag $TAG is available"
 
       - name: Commit version file
-        id: commit
         uses: EndBug/add-and-commit@v9.1.4
         with:
           add: ${{ inputs.version-properties-file }}
