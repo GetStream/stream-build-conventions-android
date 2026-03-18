@@ -12,6 +12,11 @@ on:
         required: false
         type: string
         default: 'gradle.properties'
+      suffix:
+        description: 'Optional version suffix (e.g. beta, rc01). A dash is added automatically.'
+        required: false
+        type: string
+        default: ''
       snapshot:
         description: 'Whether this is a snapshot release'
         required: false
@@ -54,6 +59,7 @@ jobs:
         with:
           bump: ${{ inputs.bump }}
           file: ${{ inputs.version-properties-file }}
+          suffix: ${{ inputs.suffix }}
 
       - name: Setup Gradle
         uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
@@ -109,6 +115,7 @@ jobs:
         with:
           bump: ${{ inputs.bump }}
           file: ${{ inputs.version-properties-file }}
+          suffix: ${{ inputs.suffix }}
 
       - name: Commit version file
         uses: EndBug/add-and-commit@v9.1.4
@@ -144,7 +151,8 @@ jobs:
           token: ${{ secrets.github-token }}
           tag: v${{ steps.bump.outputs.new-version }}
           commit: ci-release
-          makeLatest: true
+          makeLatest: ${{ inputs.suffix == '' }}
+          prerelease: ${{ inputs.suffix != '' }}
 
       - name: Label released PRs
         env:
