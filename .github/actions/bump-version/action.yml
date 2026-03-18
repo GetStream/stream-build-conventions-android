@@ -9,6 +9,10 @@ inputs:
     description: 'Path to properties file containing version (must have version=X.Y.Z format)'
     required: false
     default: 'gradle.properties'
+  suffix:
+    description: 'Optional version suffix (e.g. beta, rc01). A dash is added automatically.'
+    required: false
+    default: ''
   version-key:
     description: 'Key name for version in the properties file'
     required: false
@@ -43,11 +47,15 @@ runs:
         fi
         echo "Read version from $FILE: $CURRENT"
         
-        # Validate current version format
-        if ! [[ $CURRENT =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          echo "Error: Invalid version format '$CURRENT'. Expected format: X.Y.Z"
+        # Strip any existing suffix (e.g. -beta, -rc01) before validation
+        BASE_VERSION="${CURRENT%%-*}"
+
+        # Validate base version format
+        if ! [[ $BASE_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "Error: Invalid version format '$CURRENT'. Expected format: X.Y.Z or X.Y.Z-suffix"
           exit 1
         fi
+        CURRENT="$BASE_VERSION"
         
         # Validate bump type
         if [[ ! "$BUMP" =~ ^(major|minor|patch)$ ]]; then
@@ -65,9 +73,17 @@ runs:
           patch) NEW="$major.$minor.$((patch+1))" ;;
         esac
         
+        # Append suffix if provided
+        SUFFIX="${{ inputs.suffix }}"
+        if [[ -n "$SUFFIX" ]]; then
+          FULL_VERSION="${NEW}-${SUFFIX}"
+        else
+          FULL_VERSION="${NEW}"
+        fi
+
         # Update file with new version
-        sed -i "s/^${VERSION_KEY}=.*/${VERSION_KEY}=$NEW/" "$FILE"
-        echo "Updated $FILE: ${VERSION_KEY}=$CURRENT → ${VERSION_KEY}=$NEW"
-        
-        echo "new_version=$NEW" >> $GITHUB_OUTPUT
-        echo "Bumped version from $CURRENT to $NEW (bump type: $BUMP)"
+        sed -i "s/^${VERSION_KEY}=.*/${VERSION_KEY}=$FULL_VERSION/" "$FILE"
+        echo "Updated $FILE: ${VERSION_KEY}=$CURRENT → ${VERSION_KEY}=$FULL_VERSION"
+
+        echo "new_version=$FULL_VERSION" >> $GITHUB_OUTPUT
+        echo "Bumped version from $CURRENT to $FULL_VERSION (bump type: $BUMP)"
