@@ -151,7 +151,8 @@ jobs:
           token: ${{ secrets.github-token }}
           tag: v${{ steps.bump.outputs.new-version }}
           commit: ci-release
-          makeLatest: true
+          makeLatest: ${{ inputs.suffix == '' }}
+          prerelease: ${{ inputs.suffix != '' }}
 
       - name: Label released PRs
         env:
