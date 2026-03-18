@@ -123,7 +123,7 @@ jobs:
 
       - name: Compute release tag
         id: tag
-        run: echo "name=v${{ steps.bump.outputs.new-version }}" >> $GITHUB_OUTPUT
+        run: echo "name=v${{ steps.bump.outputs.new-version }}" >> "$GITHUB_OUTPUT"
 
       - name: Check tag doesn't already exist
         run: |
@@ -161,7 +161,7 @@ jobs:
 
       - name: Resolve release commit SHA
         id: release-commit
-        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Push version bump to source branch
         run: git push origin HEAD:${{ github.ref_name }}
