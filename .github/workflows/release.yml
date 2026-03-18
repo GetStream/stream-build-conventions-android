@@ -126,12 +126,10 @@ jobs:
         run: echo "name=v${{ steps.bump.outputs.new-version }}" >> $GITHUB_OUTPUT
 
       - name: Check tag doesn't already exist
-        env:
-          GH_TOKEN: ${{ secrets.github-token }}
         run: |
           TAG="${{ steps.tag.outputs.name }}"
-          if gh release view "$TAG" &>/dev/null; then
-            echo "❌ Error: Release $TAG already exists!"
+          if git ls-remote --tags origin "refs/tags/$TAG" | grep -q .; then
+            echo "❌ Error: Tag $TAG already exists!"
             exit 1
           fi
           echo "✅ Tag $TAG is available"
