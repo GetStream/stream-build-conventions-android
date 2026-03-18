@@ -80,6 +80,8 @@ jobs:
   publish-release:
     if: ${{ !inputs.snapshot }}
     runs-on: ubuntu-latest
+    outputs:
+      release-tag: ${{ steps.tag.outputs.name }}
 
     steps:
       - name: Checkout
@@ -119,11 +121,15 @@ jobs:
           file: ${{ inputs.version-properties-file }}
           suffix: ${{ inputs.suffix }}
 
+      - name: Compute release tag
+        id: tag
+        run: echo "name=v${{ steps.bump.outputs.new-version }}" >> $GITHUB_OUTPUT
+
       - name: Check tag doesn't already exist
         env:
           GH_TOKEN: ${{ secrets.github-token }}
         run: |
-          TAG="v${{ steps.bump.outputs.new-version }}"
+          TAG="${{ steps.tag.outputs.name }}"
           if gh release view "$TAG" &>/dev/null; then
             echo "❌ Error: Release $TAG already exists!"
             exit 1
@@ -131,15 +137,13 @@ jobs:
           echo "✅ Tag $TAG is available"
 
       - name: Commit version file
+        id: commit
         uses: EndBug/add-and-commit@v9.1.4
         with:
           add: ${{ inputs.version-properties-file }}
           message: "AUTOMATION: Version Bump"
           default_author: github_actions
           push: false
-
-      - name: Push changes to ci-release branch
-        run: git push origin HEAD:ci-release --force-with-lease
 
       - name: Setup Gradle
         uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
@@ -165,8 +169,8 @@ jobs:
         with:
           generateReleaseNotes: true
           token: ${{ secrets.github-token }}
-          tag: v${{ steps.bump.outputs.new-version }}
-          commit: ci-release
+          tag: ${{ steps.tag.outputs.name }}
+          commit: ${{ steps.commit.outputs.commit_long_sha }}
           makeLatest: ${{ inputs.suffix == '' && github.ref_name == 'develop' }}
           prerelease: ${{ inputs.suffix != '' }}
 
@@ -179,7 +183,7 @@ jobs:
 
           # Get previous tag
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          CURRENT_TAG="v${{ steps.bump.outputs.new-version }}"
+          CURRENT_TAG="${{ steps.tag.outputs.name }}"
 
           # Find PR numbers from commits between previous tag and HEAD
           if [ -n "$PREV_TAG" ]; then
@@ -214,7 +218,7 @@ jobs:
     # releasing a hotfix from an old v6 branch in Chat, we don't want to sync main
     if: ${{ !inputs.snapshot && github.ref_name == 'develop' }}
     needs: publish-release
-    name: Sync main and develop with release
+    name: Sync main with release
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -229,18 +233,11 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
 
-      - name: Sync main with ci-release
+      - name: Sync main with release tag
         run: |
-          git fetch origin ci-release
-          git merge --ff-only origin/ci-release
+          TAG="${{ needs.publish-release.outputs.release-tag }}"
+          git fetch origin tag "$TAG"
+          git merge --ff-only "$TAG"
 
-      - name: Sync develop with main
-        run: |
-          git fetch origin develop
-          git checkout develop
-          git merge --no-edit main
-
-      - name: Push both branches
-        run: |
-          git push origin main
-          git push origin develop
+      - name: Push main
+        run: git push origin main
