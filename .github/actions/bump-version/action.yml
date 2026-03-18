@@ -3,7 +3,7 @@ description: 'Bumps a semantic version based on the specified bump type'
 
 inputs:
   bump:
-    description: 'Version bump type (major, minor, or patch)'
+    description: 'Version bump type (major, minor, patch, or none)'
     required: true
   file:
     description: 'Path to properties file containing version (must have version=X.Y.Z format)'
@@ -58,19 +58,20 @@ runs:
         CURRENT="$BASE_VERSION"
         
         # Validate bump type
-        if [[ ! "$BUMP" =~ ^(major|minor|patch)$ ]]; then
-          echo "Error: Invalid bump type '$BUMP'. Must be: major, minor, or patch"
+        if [[ ! "$BUMP" =~ ^(major|minor|patch|none)$ ]]; then
+          echo "Error: Invalid bump type '$BUMP'. Must be: major, minor, patch, or none"
           exit 1
         fi
-        
+
         # Parse version
         IFS='.' read -r major minor patch <<< "$CURRENT"
-        
+
         # Calculate new version
         case "$BUMP" in
           major) NEW="$((major+1)).0.0" ;;
           minor) NEW="$major.$((minor+1)).0" ;;
           patch) NEW="$major.$minor.$((patch+1))" ;;
+          none) NEW="$major.$minor.$patch" ;;
         esac
         
         # Append suffix if provided
