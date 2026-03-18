@@ -86,10 +86,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.github-token }}
-          ref: develop
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
 
       - name: Verify main is merged into develop
+        # We don't care about this for non-develop branches (e.g. an old v6 branch in chat)
+        if: ${{ github.ref_name == 'develop' }}
         run: |
           git fetch origin main
           
@@ -144,6 +146,9 @@ jobs:
           ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: true
           SNAPSHOT: false
 
+      - name: Push version bump to source branch
+        run: git push origin HEAD:${{ github.ref_name }}
+
       - name: Create Github Release
         uses: ncipollo/release-action@v1.16.0
         with:
@@ -151,7 +156,7 @@ jobs:
           token: ${{ secrets.github-token }}
           tag: v${{ steps.bump.outputs.new-version }}
           commit: ci-release
-          makeLatest: ${{ inputs.suffix == '' }}
+          makeLatest: ${{ inputs.suffix == '' && github.ref_name == 'develop' }}
           prerelease: ${{ inputs.suffix != '' }}
 
       - name: Label released PRs
@@ -192,7 +197,9 @@ jobs:
           publish_branch: gh-pages
 
   sync_branches:
-    if: ${{ !inputs.snapshot }}
+    # We sync main with the branch only for actual releases and only for develop, e.g. if we are
+    # releasing a hotfix from an old v6 branch in Chat, we don't want to sync main
+    if: ${{ !inputs.snapshot && github.ref_name == 'develop' }}
     needs: publish-release
     name: Sync main and develop with release
     runs-on: ubuntu-latest
