@@ -80,16 +80,20 @@ jobs:
   publish-release:
     if: ${{ !inputs.snapshot }}
     runs-on: ubuntu-latest
+    outputs:
+      release-tag: ${{ steps.tag.outputs.name }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.github-token }}
-          ref: develop
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
 
       - name: Verify main is merged into develop
+        # We don't care about this for non-develop branches (e.g. an old v6 branch in chat)
+        if: ${{ github.ref_name == 'develop' }}
         run: |
           git fetch origin main
           
@@ -117,6 +121,19 @@ jobs:
           file: ${{ inputs.version-properties-file }}
           suffix: ${{ inputs.suffix }}
 
+      - name: Compute release tag
+        id: tag
+        run: echo "name=v${{ steps.bump.outputs.new-version }}" >> "$GITHUB_OUTPUT"
+
+      - name: Check tag doesn't already exist
+        run: |
+          TAG="${{ steps.tag.outputs.name }}"
+          if git ls-remote --tags origin "refs/tags/$TAG" | grep -q .; then
+            echo "❌ Error: Tag $TAG already exists!"
+            exit 1
+          fi
+          echo "✅ Tag $TAG is available"
+
       - name: Commit version file
         uses: EndBug/add-and-commit@v9.1.4
         with:
@@ -124,9 +141,6 @@ jobs:
           message: "AUTOMATION: Version Bump"
           default_author: github_actions
           push: false
-
-      - name: Push changes to ci-release branch
-        run: git push origin HEAD:ci-release --force-with-lease
 
       - name: Setup Gradle
         uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
@@ -144,14 +158,21 @@ jobs:
           ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: true
           SNAPSHOT: false
 
+      - name: Resolve release commit SHA
+        id: release-commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Push version bump to source branch
+        run: git push origin HEAD:${{ github.ref_name }}
+
       - name: Create Github Release
         uses: ncipollo/release-action@v1.16.0
         with:
           generateReleaseNotes: true
           token: ${{ secrets.github-token }}
-          tag: v${{ steps.bump.outputs.new-version }}
-          commit: ci-release
-          makeLatest: ${{ inputs.suffix == '' }}
+          tag: ${{ steps.tag.outputs.name }}
+          commit: ${{ steps.release-commit.outputs.sha }}
+          makeLatest: ${{ inputs.suffix == '' && github.ref_name == 'develop' }}
           prerelease: ${{ inputs.suffix != '' }}
 
       - name: Label released PRs
@@ -163,7 +184,7 @@ jobs:
 
           # Get previous tag
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          CURRENT_TAG="v${{ steps.bump.outputs.new-version }}"
+          CURRENT_TAG="${{ steps.tag.outputs.name }}"
 
           # Find PR numbers from commits between previous tag and HEAD
           if [ -n "$PREV_TAG" ]; then
@@ -182,9 +203,11 @@ jobs:
           done
 
       - name: Generate Dokka HTML docs
+        if: ${{ github.ref_name == 'develop' }}
         run: ./gradlew dokkaHtmlMultimodule
 
       - name: Publish docs to GitHub pages
+        if: ${{ github.ref_name == 'develop' }}
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.github-token }}
@@ -192,9 +215,11 @@ jobs:
           publish_branch: gh-pages
 
   sync_branches:
-    if: ${{ !inputs.snapshot }}
+    # We sync main with the branch only for actual releases and only for develop, e.g. if we are
+    # releasing a hotfix from an old v6 branch in Chat, we don't want to sync main
+    if: ${{ !inputs.snapshot && github.ref_name == 'develop' }}
     needs: publish-release
-    name: Sync main and develop with release
+    name: Sync main with release
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -209,18 +234,11 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
 
-      - name: Sync main with ci-release
+      - name: Sync main with release tag
         run: |
-          git fetch origin ci-release
-          git merge --ff-only origin/ci-release
+          TAG="${{ needs.publish-release.outputs.release-tag }}"
+          git fetch origin tag "$TAG"
+          git merge --ff-only "$TAG"
 
-      - name: Sync develop with main
-        run: |
-          git fetch origin develop
-          git checkout develop
-          git merge --no-edit main
-
-      - name: Push both branches
-        run: |
-          git push origin main
-          git push origin develop
+      - name: Push main
+        run: git push origin main
