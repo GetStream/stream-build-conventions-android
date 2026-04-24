@@ -67,7 +67,7 @@ jobs:
           cache-read-only: false
 
       - name: Build and publish snapshot
-        run: ./gradlew publish --no-configuration-cache
+        run: ./gradlew publish printAllArtifacts --no-configuration-cache
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.maven-central-username }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.maven-central-password }}
