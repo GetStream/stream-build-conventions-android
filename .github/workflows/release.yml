@@ -67,7 +67,7 @@ jobs:
           cache-read-only: false
 
       - name: Build and publish snapshot
-        run: ./gradlew publish --no-configuration-cache
+        run: ./gradlew publish printAllArtifacts --no-configuration-cache
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.maven-central-username }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.maven-central-password }}
@@ -82,13 +82,13 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release-tag: ${{ steps.tag.outputs.name }}
+      release-branch: ${{ steps.release-branch.outputs.name }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.github-token }}
-          ref: ${{ github.ref_name }}
           fetch-depth: 0
 
       - name: Verify main is merged into develop
@@ -134,6 +134,10 @@ jobs:
           fi
           echo "✅ Tag $TAG is available"
 
+      - name: Compute release branch
+        id: release-branch
+        run: echo "name=release/${{ github.ref_name }}/${{ steps.tag.outputs.name }}" >> "$GITHUB_OUTPUT"
+
       - name: Commit version file
         uses: EndBug/add-and-commit@v9.1.4
         with:
@@ -142,28 +146,8 @@ jobs:
           default_author: github_actions
           push: false
 
-      - name: Setup Gradle
-        uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
-        with:
-          cache-read-only: false
-
-      - name: Build and publish release
-        run: ./gradlew publish --no-configuration-cache
-        env:
-          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.maven-central-username }}
-          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.maven-central-password }}
-          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.signing-key }}
-          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.signing-key-id }}
-          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.signing-key-password }}
-          ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: true
-          SNAPSHOT: false
-
-      - name: Resolve release commit SHA
-        id: release-commit
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
-      - name: Push version bump to source branch
-        run: git push origin HEAD:${{ github.ref_name }}
+      - name: Push to release branch
+        run: git push origin "HEAD:${{ steps.release-branch.outputs.name }}" --force
 
       - name: Create Github Release
         uses: ncipollo/release-action@v1.16.0
@@ -171,11 +155,12 @@ jobs:
           generateReleaseNotes: true
           token: ${{ secrets.github-token }}
           tag: ${{ steps.tag.outputs.name }}
-          commit: ${{ steps.release-commit.outputs.sha }}
+          commit: ${{ steps.release-branch.outputs.name }}
           makeLatest: ${{ inputs.suffix == '' && github.ref_name == 'develop' }}
           prerelease: ${{ inputs.suffix != '' }}
 
       - name: Label released PRs
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.github-token }}
         run: |
@@ -202,6 +187,11 @@ jobs:
             fi
           done
 
+      - name: Setup Gradle
+        uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
+        with:
+          cache-read-only: false
+
       - name: Generate Dokka HTML docs
         if: ${{ github.ref_name == 'develop' }}
         run: ./gradlew dokkaHtmlMultimodule
@@ -214,18 +204,27 @@ jobs:
           publish_dir: ./build/dokka/htmlMultiModule
           publish_branch: gh-pages
 
+      - name: Build and publish release
+        run: ./gradlew publish --no-configuration-cache
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.maven-central-username }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.maven-central-password }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.signing-key }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.signing-key-id }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.signing-key-password }}
+          ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: true
+          SNAPSHOT: false
+
   sync_branches:
-    # We sync main with the branch only for actual releases and only for develop, e.g. if we are
-    # releasing a hotfix from an old v6 branch in Chat, we don't want to sync main
-    if: ${{ !inputs.snapshot && github.ref_name == 'develop' }}
+    if: ${{ !inputs.snapshot }}
     needs: publish-release
-    name: Sync main with release
+    name: Sync branches with release
     runs-on: ubuntu-latest
     steps:
-      - name: Check out code
+      - name: Check out source branch
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
           token: ${{ secrets.github-token }}
 
@@ -234,11 +233,32 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
 
-      - name: Sync main with release tag
+      - name: Merge release branch and push to source branch
         run: |
-          TAG="${{ needs.publish-release.outputs.release-tag }}"
-          git fetch origin tag "$TAG"
-          git merge --ff-only "$TAG"
+          RELEASE_BRANCH="${{ needs.publish-release.outputs.release-branch }}"
+          SOURCE_BRANCH="${{ github.ref_name }}"
+          for attempt in 1 2 3; do
+            git fetch origin "$RELEASE_BRANCH" "$SOURCE_BRANCH"
+            git reset --hard "origin/$SOURCE_BRANCH"
+            git merge "origin/$RELEASE_BRANCH" --no-edit
+            if git push origin "HEAD:$SOURCE_BRANCH"; then
+              echo "✅ Pushed to $SOURCE_BRANCH"
+              exit 0
+            fi
+            echo "⚠️ Push failed (attempt $attempt), retrying..."
+          done
+          echo "❌ Failed to push to $SOURCE_BRANCH after 3 attempts"
+          exit 1
 
-      - name: Push main
-        run: git push origin main
+      - name: Sync main with source branch
+        # We sync main only for develop releases, e.g. if we are releasing a hotfix
+        # from an old v6 branch in Chat, we don't want to sync main
+        if: ${{ github.ref_name == 'develop' }}
+        run: |
+          git fetch origin main
+          git checkout main
+          git merge --ff-only "${{ github.ref_name }}"
+          git push origin main
+
+      - name: Delete release branch
+        run: git push origin --delete ${{ needs.publish-release.outputs.release-branch }}
