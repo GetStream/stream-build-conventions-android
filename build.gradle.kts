@@ -1,3 +1,6 @@
+import org.gradle.api.publish.PublishingExtension
+import org.gradle.api.publish.maven.MavenPublication
+
 plugins {
     base
     alias(libs.plugins.kotlin.jvm)
@@ -28,4 +31,22 @@ detekt {
     autoCorrect = true
     toolVersion = libs.versions.detekt.get()
     buildUponDefaultConfig = true
+}
+
+tasks.register("printAllArtifacts") {
+    group = "publishing"
+    description = "Prints all artifacts that will be published"
+
+    val coordinates = mutableListOf<String>()
+    subprojects.forEach { subproject ->
+        subproject.plugins.withId("com.vanniktech.maven.publish") {
+            subproject.extensions
+                .findByType(PublishingExtension::class.java)
+                ?.publications
+                ?.filterIsInstance<MavenPublication>()
+                ?.forEach { coordinates += "${it.groupId}:${it.artifactId}:${it.version}" }
+        }
+    }
+
+    doLast { coordinates.forEach(::println) }
 }
