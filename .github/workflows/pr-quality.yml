@@ -19,6 +19,7 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
           BODY: ${{ github.event.pull_request.body }}
           LABELS_CSV: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           set -euo pipefail
 
@@ -76,11 +77,13 @@ jobs:
             [ -n "$section" ]
           }
 
-          for hdr in Goal Implementation Testing; do
-            if ! section_nonempty "$hdr"; then
-              failures="${failures}\n- Section **${hdr}** is missing or empty."
-            fi
-          done
+          if [ "$PR_AUTHOR" != "dependabot[bot]" ]; then
+            for hdr in Goal Implementation Testing; do
+              if ! section_nonempty "$hdr"; then
+                failures="${failures}\n- Section **${hdr}** is missing or empty."
+              fi
+            done
+          fi
 
           if [ -n "$failures" ]; then
             echo "has_failures=true" >> "$GITHUB_OUTPUT"
@@ -143,7 +146,7 @@ jobs:
             **What we check**
             1. Title is concise (5–18 words) unless labeled `pr:ignore-for-release`.
             2. At least one `pr:` label exists (e.g., `pr:bug`, `pr:new-feature`).
-            3. Sections `### Goal`, `### Implementation`, and `### Testing` contain content.
+            3. Sections `### Goal`, `### Implementation`, and `### Testing` contain content, unless authored by dependabot.
 
       # Flip the same sticky comment to ✅ on success
       - name: Create or update success comment
@@ -160,6 +163,6 @@ jobs:
             All required conditions are satisfied:
             - Title length is OK (or ignored by label).
             - At least one `pr:` label exists.
-            - Sections `### Goal`, `### Implementation`, and `### Testing` are filled.
+            - Sections `### Goal`, `### Implementation`, and `### Testing` are filled (or ignored for dependabot PRs).
 
             🎉 Great job! This PR is ready for review.

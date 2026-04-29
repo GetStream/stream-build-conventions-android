@@ -69,13 +69,16 @@ jobs:
           name: unit-tests-results
           path: ./**/build/reports/tests/**
       - name: Sonar
-        if: github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
         run: ./gradlew sonar
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       - name: Sonar skipped if PR from fork
         if: github.event.pull_request.head.repo.full_name != github.repository
         run: echo "⚠️ Sonar skipped because the PR comes from a fork."
+      - name: Sonar skipped for Dependabot PR
+        if: github.actor == 'dependabot[bot]'
+        run: echo "⚠️ Sonar skipped because Dependabot PRs do not have access to SONAR_TOKEN."
 
   validate-workflows:
     name: Run actionlint
