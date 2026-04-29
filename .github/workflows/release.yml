@@ -46,6 +46,27 @@ on:
         required: true
 
 jobs:
+  print-inputs:
+    if: ${{ !inputs.snapshot }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print release inputs for review
+        run: |
+          echo "Release inputs:"
+          echo "  source branch: ${{ github.ref_name }}"
+          echo "  bump: ${{ inputs.bump }}"
+          echo "  suffix: ${{ inputs.suffix }}"
+          echo "  snapshot: ${{ inputs.snapshot }}"
+
+  approval-gate:
+    if: ${{ !inputs.snapshot }}
+    needs: print-inputs
+    runs-on: ubuntu-latest
+    environment: 'publish'
+    steps:
+      - name: Release approved
+        run: echo "Release approved by ${{ github.actor }}"
+
   publish-snapshot:
     if: ${{ inputs.snapshot }}
     runs-on: ubuntu-latest
@@ -101,6 +122,7 @@ jobs:
 
   publish-release:
     if: ${{ !inputs.snapshot }}
+    needs: approval-gate
     runs-on: ubuntu-latest
     outputs:
       release-tag: ${{ steps.tag.outputs.name }}
