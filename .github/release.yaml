@@ -1,0 +1,20 @@
+changelog:
+  exclude:
+    labels:
+      - "pr:ignore-for-release"
+    authors:
+      - "github-actions[bot]"
+      - "stream-public-bot"
+  categories:
+    - title: Gradle Plugins 🐘
+      labels:
+        - "pr:gradle-plugins"
+    - title: GitHub Workflows & Actions 🐙
+      labels:
+        - "pr:workflows"
+    - title: Internal 🧪
+      labels:
+        - "pr:internal"
+    - title: Other Changes
+      labels:
+        - "*"
