@@ -158,7 +158,7 @@ jobs:
 
       - name: Compute release branch
         id: release-branch
-        run: echo "name=release/${{ github.ref_name }}/${{ steps.tag.outputs.name }}" >> "$GITHUB_OUTPUT"
+        run: echo "name=release-${{ github.ref_name }}-${{ steps.tag.outputs.name }}" >> "$GITHUB_OUTPUT"
 
       - name: Commit version file
         uses: EndBug/add-and-commit@v9.1.4
