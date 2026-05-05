@@ -21,11 +21,9 @@ on:
       BUILD_CACHE_AWS_SECRET_KEY:
         required: false
 
-# Callers must grant at least these permissions:
 permissions:
   contents: read
   pull-requests: write
-  issues: write
 
 env:
   METRICS_PROJECT: ${{ inputs.metrics-project }}
