@@ -41,6 +41,9 @@ on:
       signing-key-password:
         description: 'GPG signing key password'
         required: true
+      slack-webhook-url:
+        description: 'Slack incoming webhook URL for release notifications'
+        required: true
 
 jobs:
   publish-snapshot:
@@ -76,6 +79,25 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.signing-key-password }}
           ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: true
           SNAPSHOT: true
+
+      - name: Notify Slack on snapshot failure
+        if: failure()
+        uses: slackapi/slack-github-action@v2.0.0
+        with:
+          webhook: ${{ secrets.slack-webhook-url }}
+          webhook-type: incoming-webhook
+          errors: true
+          payload: |
+            text: ":x: Snapshot publish failed for ${{ github.repository }} <!subteam^S0117TSPFH7>"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: ":x: *Snapshot publish failed* for `${{ github.repository }}` <!subteam^S0117TSPFH7>"
+              - type: "context"
+                elements:
+                  - type: "mrkdwn"
+                    text: "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
 
   publish-release:
     if: ${{ !inputs.snapshot }}
@@ -205,6 +227,7 @@ jobs:
           publish_branch: gh-pages
 
       - name: Build and publish release
+        id: publish
         run: ./gradlew publish --no-configuration-cache
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.maven-central-username }}
@@ -214,6 +237,62 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.signing-key-password }}
           ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: true
           SNAPSHOT: false
+
+      - name: Notify Slack on pre-publish failure
+        if: failure() && steps.publish.conclusion != 'failure'
+        uses: slackapi/slack-github-action@v2.0.0
+        with:
+          webhook: ${{ secrets.slack-webhook-url }}
+          webhook-type: incoming-webhook
+          errors: true
+          payload: |
+            text: ":x: Release failed before Maven publishing for ${{ github.repository }} <!subteam^S0117TSPFH7>"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: |-
+                    :x: *Release failed before Maven publishing* for `${{ github.repository }}` <!subteam^S0117TSPFH7>
+                    Nothing was published to Maven Central. Suggested steps:
+                    1. Check the failure in the <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|workflow run>
+                    2. Verify the release/tag below were created by this run and not by a previous successful release. If they pre-existed, STOP and investigate; otherwise continue with the cleanup below
+                       a. <${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.tag.outputs.name }}|GitHub Release for `${{ steps.tag.outputs.name }}`>: delete if it exists
+                       b. <${{ github.server_url }}/${{ github.repository }}/tags|Git tag `${{ steps.tag.outputs.name }}`>: delete after deleting the release
+                       c. Retry the release if needed
+              - type: "context"
+                elements:
+                  - type: "mrkdwn"
+                    text: "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+
+      - name: Notify Slack on publish failure
+        if: failure() && steps.publish.conclusion == 'failure'
+        uses: slackapi/slack-github-action@v2.0.0
+        with:
+          webhook: ${{ secrets.slack-webhook-url }}
+          webhook-type: incoming-webhook
+          errors: true
+          payload: |
+            text: ":x: Release failed during Maven publishing for ${{ github.repository }} <!subteam^S0117TSPFH7>"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: |-
+                    :x: *Release failed during Maven publishing* for `${{ github.repository }}` <!subteam^S0117TSPFH7>
+                    Suggested steps:
+                    1. Check the failure in the <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|workflow run>
+                    2. Check on Sonatype to determine whether the release was actually published
+                    3. If it WASN'T published, clean up:
+                       a. <${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.tag.outputs.name }}|GitHub Release for `${{ steps.tag.outputs.name }}`>: delete if it exists
+                       b. <${{ github.server_url }}/${{ github.repository }}/tags|Git tag `${{ steps.tag.outputs.name }}`>: delete after deleting the release
+                       c. Retry the release if needed
+                    4. If it WAS published, finish the branch sync manually:
+                       a. Merge <${{ github.server_url }}/${{ github.repository }}/tree/${{ steps.release-branch.outputs.name }}|`${{ steps.release-branch.outputs.name }}`> into `${{ github.ref_name }}` (and `main`, if applicable)
+                       b. Delete `${{ steps.release-branch.outputs.name }}`
+              - type: "context"
+                elements:
+                  - type: "mrkdwn"
+                    text: "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
 
   sync_branches:
     if: ${{ !inputs.snapshot }}
@@ -262,3 +341,46 @@ jobs:
 
       - name: Delete release branch
         run: git push origin --delete ${{ needs.publish-release.outputs.release-branch }}
+
+      - name: Notify Slack on branch sync failure
+        if: failure()
+        uses: slackapi/slack-github-action@v2.0.0
+        with:
+          webhook: ${{ secrets.slack-webhook-url }}
+          webhook-type: incoming-webhook
+          errors: true
+          payload: |
+            text: ":warning: Released ${{ needs.publish-release.outputs.release-tag }} but branch sync failed for ${{ github.repository }} <!subteam^S0117TSPFH7>"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: |-
+                    :warning: *Released `${{ needs.publish-release.outputs.release-tag }}` but branch sync failed* for `${{ github.repository }}` <!subteam^S0117TSPFH7>
+                    The release was published successfully, but the post-release branch sync didn't complete. Suggested steps:
+                    1. Check the failure in the <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|workflow run>
+                    2. Merge <${{ github.server_url }}/${{ github.repository }}/tree/${{ needs.publish-release.outputs.release-branch }}|`${{ needs.publish-release.outputs.release-branch }}`> into `${{ github.ref_name }}` (and `main`, if applicable)
+                    3. Delete `${{ needs.publish-release.outputs.release-branch }}`
+              - type: "context"
+                elements:
+                  - type: "mrkdwn"
+                    text: "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+
+      - name: Notify Slack on release success
+        continue-on-error: true
+        uses: slackapi/slack-github-action@v2.0.0
+        with:
+          webhook: ${{ secrets.slack-webhook-url }}
+          webhook-type: incoming-webhook
+          errors: true
+          payload: |
+            text: ":android: Released ${{ needs.publish-release.outputs.release-tag }} for ${{ github.repository }}"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: ":rocket: *Released `${{ needs.publish-release.outputs.release-tag }}`* for `${{ github.repository }}`"
+              - type: "context"
+                elements:
+                  - type: "mrkdwn"
+                    text: "<${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ needs.publish-release.outputs.release-tag }}|Release notes> · <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|run>"
