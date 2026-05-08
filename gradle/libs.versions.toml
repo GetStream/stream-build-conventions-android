@@ -6,7 +6,7 @@ spotless = "8.0.0"
 kotlinDokka = "1.9.20"
 mavenPublish = "0.34.0"
 sonarqube = "6.0.1.5171"
-kover = "0.9.3"
+kover = "0.9.8"
 
 [libraries]
 android-gradle-plugin = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
