@@ -129,7 +129,7 @@ jobs:
       # Update/create the sticky comment on failure
       - name: Create or update failure comment
         if: failure()
-        uses: peter-evans/create-or-update-comment@v4
+        uses: peter-evans/create-or-update-comment@v5
         with:
           issue-number: ${{ github.event.pull_request.number }}
           comment-id: ${{ steps.sticky_comment.outputs.comment_id }}   # empty => creates new
@@ -150,7 +150,7 @@ jobs:
       # Flip the same sticky comment to ✅ on success
       - name: Create or update success comment
         if: success()
-        uses: peter-evans/create-or-update-comment@v4
+        uses: peter-evans/create-or-update-comment@v5
         with:
           issue-number: ${{ github.event.pull_request.number }}
           comment-id: ${{ steps.sticky_comment.outputs.comment_id }}   # updates if found
