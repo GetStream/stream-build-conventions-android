@@ -100,7 +100,7 @@ jobs:
       - name: Compute sticky comment id
         if: always()
         id: sticky_comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const anchor = "<!-- pr-quality-anchor -->"; // must match the body below
