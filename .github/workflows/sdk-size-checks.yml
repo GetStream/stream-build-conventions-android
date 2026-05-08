@@ -81,7 +81,7 @@ jobs:
           echo "PR_SDK_SIZES=$(cat pr_sdk_sizes.json)" >> "$GITHUB_ENV"
 
       - name: Post a comment or print size comparison
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const maxTolerance = process.env.MAX_TOLERANCE;
