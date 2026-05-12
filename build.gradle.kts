@@ -18,6 +18,8 @@ allprojects {
     }
 }
 
+dependencies { dokka(project(":plugin")) }
+
 spotless {
     kotlin {
         target("**/*.kt")

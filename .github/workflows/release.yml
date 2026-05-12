@@ -216,14 +216,14 @@ jobs:
 
       - name: Generate Dokka HTML docs
         if: ${{ github.ref_name == 'develop' }}
-        run: ./gradlew dokkaHtmlMultimodule
+        run: ./gradlew dokkaGeneratePublicationHtml
 
       - name: Publish docs to GitHub pages
         if: ${{ github.ref_name == 'develop' }}
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.github-token }}
-          publish_dir: ./build/dokka/htmlMultiModule
+          publish_dir: ./build/dokka/html
           publish_branch: gh-pages
 
       - name: Build and publish release

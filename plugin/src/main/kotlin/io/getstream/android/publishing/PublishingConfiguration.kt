@@ -33,6 +33,7 @@ import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.findByType
+import org.gradle.kotlin.dsl.project
 
 private const val groupId = "io.getstream"
 
@@ -51,6 +52,13 @@ internal fun Project.configurePublishingModule() {
 
     pluginManager.apply("com.vanniktech.maven.publish")
     pluginManager.apply("org.jetbrains.dokka")
+    pluginManager.apply("org.jetbrains.dokka-javadoc")
+
+    // Wire this module into the root Dokka publication to enable multi-module aggregation
+    val modulePath = path
+    rootProject.pluginManager.withPlugin("org.jetbrains.dokka") {
+        rootProject.dependencies.add("dokka", rootProject.dependencies.project(modulePath))
+    }
 
     this.group = groupId
     this.version = computeVersion()
@@ -105,7 +113,10 @@ private fun Project.computeArtifactPlatform(): Platform =
                 )
             }
 
-            KotlinJvm(sourcesJar = true, javadocJar = JavadocJar.Dokka("dokkaJavadoc"))
+            KotlinJvm(
+                sourcesJar = true,
+                javadocJar = JavadocJar.Dokka("dokkaGeneratePublicationJavadoc"),
+            )
         }
 
         pluginManager.hasPlugin("java-platform") -> {
