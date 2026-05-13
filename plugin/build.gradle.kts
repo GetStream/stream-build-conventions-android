@@ -6,6 +6,7 @@ plugins {
     `kotlin-dsl`
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.dokka)
+    id("org.jetbrains.dokka-javadoc")
     alias(libs.plugins.maven.publish)
 }
 
@@ -86,7 +87,12 @@ gradlePlugin {
 
 mavenPublishing {
     publishToMavenCentral(automaticRelease = true)
-    configure(GradlePlugin(javadocJar = JavadocJar.Dokka("dokkaJavadoc"), sourcesJar = true))
+    configure(
+        GradlePlugin(
+            javadocJar = JavadocJar.Dokka("dokkaGeneratePublicationJavadoc"),
+            sourcesJar = true,
+        )
+    )
 
     pom {
         name.set("Stream Build Conventions")

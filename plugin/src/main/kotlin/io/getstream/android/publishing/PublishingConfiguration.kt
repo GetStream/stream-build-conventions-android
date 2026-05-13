@@ -33,11 +33,20 @@ import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.findByType
+import org.gradle.kotlin.dsl.project
 
 private const val groupId = "io.getstream"
 
 internal fun Project.configurePublishingRoot() {
     pluginManager.apply("org.jetbrains.dokka")
+
+    // Aggregate every subproject that applies Dokka into the root Dokka publication
+    val rootDependencies = dependencies
+    subprojects {
+        pluginManager.withPlugin("org.jetbrains.dokka") {
+            rootDependencies.add("dokka", rootDependencies.project(path))
+        }
+    }
 }
 
 internal fun Project.configurePublishingModule() {
@@ -51,6 +60,7 @@ internal fun Project.configurePublishingModule() {
 
     pluginManager.apply("com.vanniktech.maven.publish")
     pluginManager.apply("org.jetbrains.dokka")
+    pluginManager.apply("org.jetbrains.dokka-javadoc")
 
     this.group = groupId
     this.version = computeVersion()
@@ -105,7 +115,10 @@ private fun Project.computeArtifactPlatform(): Platform =
                 )
             }
 
-            KotlinJvm(sourcesJar = true, javadocJar = JavadocJar.Dokka("dokkaJavadoc"))
+            KotlinJvm(
+                sourcesJar = true,
+                javadocJar = JavadocJar.Dokka("dokkaGeneratePublicationJavadoc"),
+            )
         }
 
         pluginManager.hasPlugin("java-platform") -> {
