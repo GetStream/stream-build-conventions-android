@@ -84,7 +84,7 @@ jobs:
             [ -n "$section" ]
           }
 
-          if [ "$PR_AUTHOR" != "dependabot[bot]" ]; then
+          if ! is_bot_author; then
             for hdr in Goal Implementation Testing; do
               if ! section_nonempty "$hdr"; then
                 failures="${failures}\n- Section **${hdr}** is missing or empty."
@@ -95,7 +95,9 @@ jobs:
           # --- 4) Linked issue (Linear or GitHub) — bots are exempt
           if ! is_bot_author; then
             # Strip HTML comments before scanning, so commented-out template hints don't count.
-            BODY_STRIPPED="$(printf "%s" "$BODY" | sed -E ':a;N;$!ba;s/<!--.*?-->//g')"
+            # Use perl for proper non-greedy matching; POSIX sed does not support .*? reliably
+            # and a multiline sed greedy match would swallow real content between comments.
+            BODY_STRIPPED="$(printf "%s" "$BODY" | perl -0777 -pe 's/<!--.*?-->//gs')"
             if ! printf "%s" "$BODY_STRIPPED" | grep -qE 'linear\.app|\b[A-Z]{2,}-[0-9]+\b|(Closes|Fixes|Resolves)[[:space:]]+#[0-9]+'; then
               failures="${failures}\n- **Linked issue missing**. Add a Linear ticket reference (e.g. \`AND-123\`, \`Closes AND-123\`, or a https://linear.app/... link) or a GitHub issue (\`Closes #123\`) to the PR description."
             fi
@@ -162,7 +164,7 @@ jobs:
             **What we check**
             1. Title is concise (5–18 words) unless labeled `pr:ignore-for-release`.
             2. At least one `pr:` label exists (e.g., `pr:bug`, `pr:new-feature`).
-            3. Sections `### Goal`, `### Implementation`, and `### Testing` contain content, unless authored by dependabot.
+            3. Sections `### Goal`, `### Implementation`, and `### Testing` contain content. Bot-authored PRs are exempt.
             4. PR description references an issue (Linear ticket like `AND-123`, a Linear URL, or a GitHub `Closes #N`). Bot-authored PRs are exempt.
 
       # Flip the same sticky comment to ✅ on success
@@ -180,7 +182,7 @@ jobs:
             All required conditions are satisfied:
             - Title length is OK (or ignored by label).
             - At least one `pr:` label exists.
-            - Sections `### Goal`, `### Implementation`, and `### Testing` are filled (or ignored for dependabot PRs).
+            - Sections `### Goal`, `### Implementation`, and `### Testing` are filled, or the PR is bot-authored.
             - An issue is linked (Linear ticket or GitHub issue), or the PR is bot-authored.
 
             🎉 Great job! This PR is ready for review.
