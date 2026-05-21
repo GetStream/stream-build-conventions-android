@@ -28,6 +28,7 @@ jobs:
           MIN_WORDS=5
           MAX_WORDS=18
           TITLE_BYPASS_LABEL="pr:ignore-for-release"
+          BOT_AUTHORS=("dependabot[bot]" "Stream-SDK-Bot" "renovate[bot]")
 
           has_label () {
             case ",${LABELS_CSV}," in
@@ -41,6 +42,13 @@ jobs:
             for l in "${LBL[@]}"; do
               l="$(echo "$l" | xargs)"
               [[ "$l" == pr:* ]] && return 0
+            done
+            return 1
+          }
+
+          is_bot_author () {
+            for bot in "${BOT_AUTHORS[@]}"; do
+              [ "$PR_AUTHOR" = "$bot" ] && return 0
             done
             return 1
           }
@@ -82,6 +90,15 @@ jobs:
                 failures="${failures}\n- Section **${hdr}** is missing or empty."
               fi
             done
+          fi
+
+          # --- 4) Linked issue (Linear or GitHub) — bots are exempt
+          if ! is_bot_author; then
+            # Strip HTML comments before scanning, so commented-out template hints don't count.
+            BODY_STRIPPED="$(printf "%s" "$BODY" | sed -E ':a;N;$!ba;s/<!--.*?-->//g')"
+            if ! printf "%s" "$BODY_STRIPPED" | grep -qE 'linear\.app|\b[A-Z]{2,}-[0-9]+\b|(Closes|Fixes|Resolves)[[:space:]]+#[0-9]+'; then
+              failures="${failures}\n- **Linked issue missing**. Add a Linear ticket reference (e.g. \`AND-123\`, \`Closes AND-123\`, or a https://linear.app/... link) or a GitHub issue (\`Closes #123\`) to the PR description."
+            fi
           fi
 
           if [ -n "$failures" ]; then
@@ -146,6 +163,7 @@ jobs:
             1. Title is concise (5–18 words) unless labeled `pr:ignore-for-release`.
             2. At least one `pr:` label exists (e.g., `pr:bug`, `pr:new-feature`).
             3. Sections `### Goal`, `### Implementation`, and `### Testing` contain content, unless authored by dependabot.
+            4. PR description references an issue (Linear ticket like `AND-123`, a Linear URL, or a GitHub `Closes #N`). Bot-authored PRs are exempt.
 
       # Flip the same sticky comment to ✅ on success
       - name: Create or update success comment
@@ -163,5 +181,6 @@ jobs:
             - Title length is OK (or ignored by label).
             - At least one `pr:` label exists.
             - Sections `### Goal`, `### Implementation`, and `### Testing` are filled (or ignored for dependabot PRs).
+            - An issue is linked (Linear ticket or GitHub issue), or the PR is bot-authored.
 
             🎉 Great job! This PR is ready for review.
