@@ -139,23 +139,22 @@ private fun Project.registerAggregatedCoverageTask(includedModules: Set<String>)
 }
 
 private fun Project.registerModuleCoverageTask() {
-    // Determine the appropriate test task based on module type and plugins
-    val hasPaparazziPlugin = pluginManager.hasPlugin("app.cash.paparazzi")
     val hasAndroidPlugin =
         pluginManager.hasPlugin("com.android.library") ||
             pluginManager.hasPlugin("com.android.application")
 
-    val testTaskName =
-        when {
-            hasPaparazziPlugin -> "verifyPaparazziDebug"
-            hasAndroidPlugin -> "testDebugUnitTest"
-            else -> "test"
+    val defaultTestTask = if (hasAndroidPlugin) "testDebugUnitTest" else "test"
+
+    val coverageTask =
+        tasks.register(KoverConstants.TEST_TASK) {
+            group = "verification"
+            description = "Run module-specific tests"
+            dependsOn(defaultTestTask)
         }
 
-    tasks.register(KoverConstants.TEST_TASK) {
-        group = "verification"
-        description = "Run module-specific tests"
-        dependsOn(testTaskName)
+    // If Paparazzi plugin is applied, depend on its verification task instead
+    pluginManager.withPlugin("app.cash.paparazzi") {
+        coverageTask.configure { setDependsOn(listOf("verifyPaparazziDebug")) }
     }
 }
 
