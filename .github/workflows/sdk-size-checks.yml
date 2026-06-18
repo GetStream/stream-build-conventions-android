@@ -41,7 +41,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Gradle
         uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
 
