@@ -85,4 +85,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: raven-actions/actionlint@v2.1.2
+      - uses: raven-actions/actionlint@v2.2.0
