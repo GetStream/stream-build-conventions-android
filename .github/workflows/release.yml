@@ -82,7 +82,7 @@ jobs:
 
       - name: Notify Slack on snapshot failure
         if: failure()
-        uses: slackapi/slack-github-action@v3.0.3
+        uses: slackapi/slack-github-action@v3.0.4
         with:
           webhook: ${{ secrets.slack-webhook-url }}
           webhook-type: incoming-webhook
@@ -240,7 +240,7 @@ jobs:
 
       - name: Notify Slack on pre-publish failure
         if: failure() && steps.publish.conclusion != 'failure'
-        uses: slackapi/slack-github-action@v3.0.3
+        uses: slackapi/slack-github-action@v3.0.4
         with:
           webhook: ${{ secrets.slack-webhook-url }}
           webhook-type: incoming-webhook
@@ -266,7 +266,7 @@ jobs:
 
       - name: Notify Slack on publish failure
         if: failure() && steps.publish.conclusion == 'failure'
-        uses: slackapi/slack-github-action@v3.0.3
+        uses: slackapi/slack-github-action@v3.0.4
         with:
           webhook: ${{ secrets.slack-webhook-url }}
           webhook-type: incoming-webhook
@@ -344,7 +344,7 @@ jobs:
 
       - name: Notify Slack on branch sync failure
         if: failure()
-        uses: slackapi/slack-github-action@v3.0.3
+        uses: slackapi/slack-github-action@v3.0.4
         with:
           webhook: ${{ secrets.slack-webhook-url }}
           webhook-type: incoming-webhook
@@ -368,7 +368,7 @@ jobs:
 
       - name: Notify Slack on release success
         continue-on-error: true
-        uses: slackapi/slack-github-action@v3.0.3
+        uses: slackapi/slack-github-action@v3.0.4
         with:
           webhook: ${{ secrets.slack-webhook-url }}
           webhook-type: incoming-webhook
