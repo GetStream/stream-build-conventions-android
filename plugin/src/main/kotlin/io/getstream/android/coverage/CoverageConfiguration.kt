@@ -158,13 +158,11 @@ private fun Project.registerModuleCoverageTask() {
     }
 }
 
-private inline fun <reified E : CommonExtension<*, *, *, *, *, *>> Project.configureAndroid() {
+private inline fun <reified E : CommonExtension> Project.configureAndroid() {
     extensions.configure<E> {
-        buildTypes {
-            getByName("debug") {
-                enableUnitTestCoverage = true
-                enableAndroidTestCoverage = true
-            }
+        buildTypes.getByName("debug") {
+            enableUnitTestCoverage = true
+            enableAndroidTestCoverage = true
         }
     }
 }

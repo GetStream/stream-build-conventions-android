@@ -1,5 +1,5 @@
 name: 'Setup Java and Gradle'
-description: 'Sets up JDK 17 and Gradle with caching for faster builds'
+description: 'Sets up JDK 21 and Gradle with caching for faster builds'
 
 inputs:
   cache-read-only:
@@ -13,7 +13,7 @@ runs:
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
-        java-version: 17
+        java-version: 21
         distribution: 'temurin'
 
     - name: Setup Gradle

@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
+      - uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@feature/rahullohra/build-on-sdk-37
       - name: Build
         run: ./gradlew assembleDebug --scan
 
@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
+      - uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@feature/rahullohra/build-on-sdk-37
       - name: Spotless
         run: ./gradlew spotlessCheck
       - name: Lint
@@ -59,7 +59,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # For Sonar analysis
-      - uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
+      - uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@feature/rahullohra/build-on-sdk-37
       - name: Run unit tests
         run: ./gradlew :testCoverage --scan --stacktrace
       - name: Upload tests results
@@ -68,6 +68,13 @@ jobs:
         with:
           name: unit-tests-results
           path: ./**/build/reports/tests/**
+      - name: Upload Paparazzi failure images
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: paparazzi-failures
+          path: ./**/build/paparazzi/failures/**
+          if-no-files-found: ignore
       - name: Sonar
         if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
         run: ./gradlew sonar

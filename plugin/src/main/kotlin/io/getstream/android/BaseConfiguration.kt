@@ -30,27 +30,23 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 private val javaVersion = JavaVersion.VERSION_11
 private val jvmTargetVersion = JvmTarget.JVM_11
 
-internal inline fun <reified Ext : CommonExtension<*, *, *, *, *, *>> Project.configureAndroid() {
+internal inline fun <reified Ext : CommonExtension> Project.configureAndroid() {
     val commonExtension = extensions.getByType<Ext>()
 
-    commonExtension.apply {
-        compileOptions {
-            sourceCompatibility = javaVersion
-            targetCompatibility = javaVersion
-        }
-
-        testOptions {
-            unitTests {
-                isIncludeAndroidResources = true
-                isReturnDefaultValues = true
-                all(Test::configureTestLogging)
-            }
-        }
-
-        // Add Kotlin source directories to Android source sets. Useful, for example, for letting
-        // them being picked up in Sonar analyses.
-        sourceSets { all { java.srcDir("src/$name/kotlin") } }
+    commonExtension.compileOptions.apply {
+        sourceCompatibility = javaVersion
+        targetCompatibility = javaVersion
     }
+
+    commonExtension.testOptions.unitTests.apply {
+        isIncludeAndroidResources = true
+        isReturnDefaultValues = true
+        all(Test::configureTestLogging)
+    }
+
+    // Add Kotlin source directories to Android source sets. Useful, for example, for letting
+    // them being picked up in Sonar analyses.
+    commonExtension.sourceSets.all { java.srcDir("src/$name/kotlin") }
 
     tasks.withType<JavaCompile>().configureEach {
         sourceCompatibility = javaVersion.toString()
