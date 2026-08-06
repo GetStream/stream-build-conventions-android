@@ -13,6 +13,11 @@ on:
           - major
           - none
         default: minor
+      suffix:
+        description: 'Optional version suffix (e.g. beta, rc01). A dash is added automatically.'
+        required: false
+        type: string
+        default: ''
 
 concurrency:
   group: release
@@ -25,6 +30,7 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       bump: ${{ inputs.bump }}
+      suffix: ${{ inputs.suffix }}
     secrets:
       github-token: ${{ secrets.STREAM_PUBLIC_BOT_TOKEN }}
       maven-central-username: ${{ secrets.OSSRH_USERNAME }}
