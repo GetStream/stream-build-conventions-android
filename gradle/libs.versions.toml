@@ -5,7 +5,7 @@ detekt = "1.23.8"
 spotless = "8.0.0"
 kotlinDokka = "2.2.0"
 mavenPublish = "0.34.0"
-sonarqube = "7.3.1.8318"
+sonarqube = "7.4.0.8496"
 kover = "0.9.9"
 
 [libraries]
