@@ -161,7 +161,7 @@ jobs:
         run: echo "name=release-${{ github.ref_name }}-${{ steps.tag.outputs.name }}" >> "$GITHUB_OUTPUT"
 
       - name: Commit version file
-        uses: EndBug/add-and-commit@v10.0.0
+        uses: EndBug/add-and-commit@v11.0.0
         with:
           add: ${{ inputs.version-properties-file }}
           message: "AUTOMATION: Version Bump"
