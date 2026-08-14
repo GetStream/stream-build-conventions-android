@@ -65,7 +65,7 @@ jobs:
           suffix: ${{ inputs.suffix }}
 
       - name: Setup Gradle
-        uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@feature/rahullohra/build-on-sdk-37
+        uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@sdk37
         with:
           cache-read-only: false
 
@@ -210,7 +210,7 @@ jobs:
           done
 
       - name: Setup Gradle
-        uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@feature/rahullohra/build-on-sdk-37
+        uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@sdk37
         with:
           cache-read-only: false
 

@@ -43,7 +43,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
       - name: Setup Gradle
-        uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@feature/rahullohra/build-on-sdk-37
+        uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@sdk37
 
       - name: Assemble release for metrics
         run: ./gradlew :metrics:"$METRICS_PROJECT":assembleRelease
