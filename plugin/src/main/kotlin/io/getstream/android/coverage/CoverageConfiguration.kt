@@ -68,7 +68,7 @@ private fun Project.configureSonar(extension: StreamProjectExtension) {
     val repositoryName = extension.repositoryName.get()
     val exclusions = buildList {
         addAll(SonarConstants.EXCLUSIONS)
-        addAll(extension.coverage.sonarCoverageExclusions.get())
+        addAll(extension.coverage.sonarExclusions.get())
     }
 
     extensions.configure<SonarExtension> {
@@ -81,7 +81,7 @@ private fun Project.configureSonar(extension: StreamProjectExtension) {
             property("sonar.java.coveragePlugin", "jacoco")
             property("sonar.sourceEncoding", "UTF-8")
             property("sonar.java.binaries", "$rootDir/**/build/tmp/kotlin-classes/debug")
-            property("sonar.coverage.exclusions", exclusions)
+            property("sonar.exclusions", exclusions)
             property(
                 "sonar.coverage.jacoco.xmlReportPaths",
                 layout.buildDirectory

@@ -35,10 +35,10 @@ abstract class CoverageOptions @Inject constructor(objects: ObjectFactory) {
         objects.listProperty<String>().convention(emptyList())
 
     /**
-     * Additional Sonar coverage exclusion patterns beyond the defaults. Default exclusions include
-     * tests, generated code, etc. Expected patterns matching file paths, e.g.
+     * Additional Sonar exclusion patterns beyond the defaults. Default exclusions include tests,
+     * generated code, etc. Expected patterns matching file paths, e.g.
      * "&#42;&#42;/io/getstream/some/package/&#42;&#42;"
      */
-    val sonarCoverageExclusions: ListProperty<String> =
+    val sonarExclusions: ListProperty<String> =
         objects.listProperty<String>().convention(emptyList())
 }

@@ -48,8 +48,9 @@ streamProject {
         // Additional Kover exclusion patterns for classes/packages (default: empty)
         koverClassExclusions = listOf("*SomeClass", "io.getstream.some.package.*")
 
-        // Additional Sonar coverage exclusion patterns for file paths (default: empty)
-        sonarCoverageExclusions = listOf("**/io/getstream/some/package/**")
+        // Additional Sonar exclusion patterns for file paths, excluded from all analysis
+        // (coverage, duplication, issues) (default: empty)
+        sonarExclusions = listOf("**/io/getstream/some/package/**")
     }
 
     publishing {
