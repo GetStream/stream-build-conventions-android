@@ -37,6 +37,24 @@ import org.gradle.kotlin.dsl.project
 
 private const val groupId = "io.getstream"
 
+// Where artifacts go. Selected by a Gradle property so CI flips it with -P (or
+// ORG_GRADLE_PROJECT_streamPublishTargets) without a code change, and so the
+// default is exactly what every repo does today -- merging this cannot alter
+// anyone's release.
+//
+// Both targets at once is the cutover mechanism, not a special mode: a single
+// `./gradlew publish` pushes to every declared repository, so one run produces
+// a Central release and a staged tree for the Stream repository from the same
+// signed bytes.
+private const val publishTargetsProperty = "streamPublishTargets"
+private const val targetCentral = "central"
+private const val targetStreamRepo = "streamRepo"
+
+// One tree for the whole build, under the ROOT build directory -- the upload
+// step ships a single Maven-2 tree, and a per-module directory would give it
+// one tree per module. Matches the composite action's default staged-directory.
+private const val stagingDirectory = "staged-repo"
+
 internal fun Project.configurePublishingRoot() {
     pluginManager.apply("org.jetbrains.dokka")
 
@@ -65,9 +83,22 @@ internal fun Project.configurePublishingModule() {
     this.group = groupId
     this.version = computeVersion()
 
+    val targets = publishTargets()
+
     pluginManager.withPlugin("com.vanniktech.maven.publish") {
         extensions.configure<MavenPublishBaseExtension> {
-            publishToMavenCentral(automaticRelease = true)
+            if (targetCentral in targets) {
+                publishToMavenCentral(automaticRelease = true)
+            }
+
+            if (targetStreamRepo in targets) {
+                // Explicit, even though the plugin already signs whenever
+                // RELEASE_SIGNING_ENABLED is set: the Stream repository REJECTS an
+                // unsigned release run, so the requirement is stated where it is
+                // load-bearing rather than left to an environment variable a repo
+                // could forget to pass.
+                signAllPublications()
+            }
 
             coordinates(groupId = groupId, artifactId = artifactId, version = version.toString())
 
@@ -75,9 +106,55 @@ internal fun Project.configurePublishingModule() {
 
             configurePom(projectExtension, artifactId)
         }
+
+        if (targetStreamRepo in targets) {
+            configureStreamRepoStaging()
+        }
     }
 
     rootProject.registerPrintAllArtifactsTask()
+}
+
+/**
+ * Which repositories this build publishes to.
+ *
+ * Unknown names fail the build rather than being ignored. A typo that silently
+ * narrowed the set would publish to fewer places than the release expected and
+ * only surface as a missing artifact afterwards.
+ */
+private fun Project.publishTargets(): Set<String> {
+    val raw = providers.gradleProperty(publishTargetsProperty).getOrElse(targetCentral)
+    val targets = raw.split(",").map(String::trim).filter(String::isNotEmpty).toSet()
+
+    val known = setOf(targetCentral, targetStreamRepo)
+    val unknown = targets - known
+    require(targets.isNotEmpty() && unknown.isEmpty()) {
+        "'$publishTargetsProperty' must be a comma-separated subset of " +
+            "${known.joinToString()} but was '$raw'"
+    }
+
+    return targets
+}
+
+/**
+ * Stages the Maven-2 tree on disk for the Stream repository upload.
+ *
+ * Gradle could write to the bucket directly over the S3-compatible endpoint,
+ * which is fewer moving parts -- but that puts the upload credential in the same
+ * job as the signing key. Staging to a directory is what lets CI hand the tree
+ * to a separate job that has never seen the key.
+ */
+private fun Project.configureStreamRepoStaging() {
+    val staging = rootProject.layout.buildDirectory.dir(stagingDirectory)
+
+    extensions.configure<PublishingExtension> {
+        repositories {
+            maven {
+                name = "streamRepoStaging"
+                url = staging.get().asFile.toURI()
+            }
+        }
+    }
 }
 
 // Get the overridden artifact ID if present or use the project name as default

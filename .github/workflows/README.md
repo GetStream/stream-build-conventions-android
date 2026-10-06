@@ -83,6 +83,7 @@ Your project must have:
 | `bump`                    | Yes      | -                   | Version bump type: `major`, `minor`, or `patch` |
 | `snapshot`                | No       | `false`             | Whether this is a snapshot release              |
 | `version-properties-file` | No       | `gradle.properties` | Path to file containing version                 |
+| `publish-targets`         | No       | `central`           | Where to publish: `central`, `streamRepo`, or both |
 
 ## Secrets
 
@@ -94,6 +95,34 @@ Your project must have:
 | `signing-key`            | Yes      | GPG signing key for artifact signing                                                |
 | `signing-key-id`         | Yes      | GPG signing key ID                                                                  |
 | `signing-key-password`   | Yes      | GPG signing key password                                                            |
+
+Four more are needed only when `publish-targets` includes `streamRepo`. They are
+an **R2 S3 credential scoped to the staging bucket**, not a Cloudflare API token,
+and they are read only by the upload jobs — which never see the signing key.
+
+| Secret                          | Required | Description                                      |
+|---------------------------------|----------|--------------------------------------------------|
+| `stream-repo-endpoint`          | No       | S3 API endpoint of the R2 account                |
+| `stream-repo-bucket`            | No       | Staging bucket name                              |
+| `stream-repo-access-key-id`     | No       | R2 access key id, scoped to the staging bucket   |
+| `stream-repo-secret-access-key` | No       | R2 secret access key                             |
+
+## Publish targets
+
+`publish-targets` selects the repositories a run publishes to. It reaches Gradle
+as `-PstreamPublishTargets` and an unrecognised name fails the build rather than
+being skipped.
+
+| Value                  | Effect                                                              |
+|------------------------|---------------------------------------------------------------------|
+| `central`              | Maven Central only. The default, and what every repo did before     |
+| `streamRepo`           | The Stream repository only                                          |
+| `central,streamRepo`   | Both, from one `./gradlew publish` and one set of signed bytes      |
+
+Both at once is the cutover mechanism rather than a special mode: `publish`
+pushes to every declared repository, so a single run produces a Central release
+and a staged tree for the Stream repository. While both are live Central stays
+authoritative — a failed upload fails the run but does not block the branch sync.
 
 ## Snapshot vs Production Releases
 

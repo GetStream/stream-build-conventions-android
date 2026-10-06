@@ -22,6 +22,14 @@ on:
         required: false
         type: boolean
         default: false
+      publish-targets:
+        description: >-
+          Comma-separated: central, streamRepo, or both. Defaults to central,
+          which is what every repo did before this input existed, so leaving it
+          alone cannot change a release. Both at once is the cutover window.
+        required: false
+        type: string
+        default: 'central'
     secrets:
       github-token:
         description: 'GitHub token with repo write permissions'
@@ -44,6 +52,20 @@ on:
       slack-webhook-url:
         description: 'Slack incoming webhook URL for release notifications'
         required: true
+      # Only read by the upload jobs, which never see the signing key. Optional,
+      # so a repo publishing to Central alone needs no new secrets at all.
+      stream-repo-endpoint:
+        description: 'S3 API endpoint of the R2 account hosting the Stream repository'
+        required: false
+      stream-repo-bucket:
+        description: 'Staging bucket name'
+        required: false
+      stream-repo-access-key-id:
+        description: 'R2 access key id, scoped to the staging bucket'
+        required: false
+      stream-repo-secret-access-key:
+        description: 'R2 secret access key'
+        required: false
 
 jobs:
   publish-snapshot:
@@ -70,7 +92,7 @@ jobs:
           cache-read-only: false
 
       - name: Build and publish snapshot
-        run: ./gradlew publish printAllArtifacts --no-configuration-cache
+        run: ./gradlew publish printAllArtifacts --no-configuration-cache -PstreamPublishTargets=${{ inputs.publish-targets }}
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.maven-central-username }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.maven-central-password }}
@@ -79,6 +101,18 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.signing-key-password }}
           ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: true
           SNAPSHOT: true
+
+      # Handed to a job that has never seen the signing key. That split is the
+      # whole reason Gradle stages to a directory instead of writing to the
+      # bucket itself over the S3 endpoint.
+      - name: Hand the staged tree to the upload job
+        if: ${{ contains(inputs.publish-targets, 'streamRepo') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: stream-repo-staged-snapshot
+          path: build/staged-repo
+          retention-days: 1
+          if-no-files-found: error
 
       - name: Notify Slack on snapshot failure
         if: failure()
@@ -228,7 +262,7 @@ jobs:
 
       - name: Build and publish release
         id: publish
-        run: ./gradlew publish --no-configuration-cache
+        run: ./gradlew publish --no-configuration-cache -PstreamPublishTargets=${{ inputs.publish-targets }}
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.maven-central-username }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.maven-central-password }}
@@ -237,6 +271,15 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.signing-key-password }}
           ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: true
           SNAPSHOT: false
+
+      - name: Hand the staged tree to the upload job
+        if: ${{ contains(inputs.publish-targets, 'streamRepo') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: stream-repo-staged-release
+          path: build/staged-repo
+          retention-days: 1
+          if-no-files-found: error
 
       - name: Notify Slack on pre-publish failure
         if: failure() && steps.publish.conclusion != 'failure'
@@ -293,6 +336,62 @@ jobs:
                 elements:
                   - type: "mrkdwn"
                     text: "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+
+  # --- Stream repository upload -------------------------------------------
+  #
+  # Separate jobs, because secrets are injected per job: these hold the R2
+  # credential and never the signing key, and the publish jobs above hold the
+  # signing key and never the R2 credential. Two secrets in one job is one blast
+  # radius, and that is exactly what signature verification on the other end is
+  # supposed to bound.
+  #
+  # Deliberately NOT a dependency of sync_branches. While both targets are live,
+  # Central is still authoritative; a fault in the new path must not strand a
+  # finished release with its branches unmerged. It fails the run so we see it.
+
+  upload-snapshot-to-stream-repo:
+    if: ${{ inputs.snapshot && contains(inputs.publish-targets, 'streamRepo') }}
+    needs: publish-snapshot
+    name: Upload snapshot to the Stream repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the staged tree
+        uses: actions/download-artifact@v4
+        with:
+          name: stream-repo-staged-snapshot
+          path: build/staged-repo
+
+      - name: Publish to the Stream repository
+        uses: GetStream/stream-build-conventions-android/.github/actions/publish-to-stream-repo@main
+        with:
+          staged-directory: build/staged-repo
+          channel: snapshots
+          endpoint: ${{ secrets.stream-repo-endpoint }}
+          bucket: ${{ secrets.stream-repo-bucket }}
+          access-key-id: ${{ secrets.stream-repo-access-key-id }}
+          secret-access-key: ${{ secrets.stream-repo-secret-access-key }}
+
+  upload-release-to-stream-repo:
+    if: ${{ !inputs.snapshot && contains(inputs.publish-targets, 'streamRepo') }}
+    needs: publish-release
+    name: Upload release to the Stream repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the staged tree
+        uses: actions/download-artifact@v4
+        with:
+          name: stream-repo-staged-release
+          path: build/staged-repo
+
+      - name: Publish to the Stream repository
+        uses: GetStream/stream-build-conventions-android/.github/actions/publish-to-stream-repo@main
+        with:
+          staged-directory: build/staged-repo
+          channel: releases
+          endpoint: ${{ secrets.stream-repo-endpoint }}
+          bucket: ${{ secrets.stream-repo-bucket }}
+          access-key-id: ${{ secrets.stream-repo-access-key-id }}
+          secret-access-key: ${{ secrets.stream-repo-secret-access-key }}
 
   sync_branches:
     if: ${{ !inputs.snapshot }}
