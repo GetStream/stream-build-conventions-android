@@ -31,6 +31,11 @@ jobs:
     with:
       bump: ${{ inputs.bump }}
       suffix: ${{ inputs.suffix }}
+      # This repo is the exception to the new default, and stays on Central.
+      # Every SDK resolves these plugins through pluginManagement, which declares
+      # mavenCentral() and the plugin portal and not our repository -- publishing
+      # the plugin only to ourselves would break plugin resolution everywhere.
+      publish-targets: central
     secrets:
       github-token: ${{ secrets.STREAM_PUBLIC_BOT_TOKEN }}
       maven-central-username: ${{ secrets.OSSRH_USERNAME }}

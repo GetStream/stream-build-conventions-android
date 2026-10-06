@@ -83,7 +83,7 @@ Your project must have:
 | `bump`                    | Yes      | -                   | Version bump type: `major`, `minor`, or `patch` |
 | `snapshot`                | No       | `false`             | Whether this is a snapshot release              |
 | `version-properties-file` | No       | `gradle.properties` | Path to file containing version                 |
-| `publish-targets`         | No       | `central`           | Where to publish: `central`, `streamRepo`, or both |
+| `publish-targets`         | No       | `streamRepo`        | Where to publish: `streamRepo`, `central`, or both |
 
 ## Secrets
 
@@ -115,14 +115,24 @@ being skipped.
 
 | Value                  | Effect                                                              |
 |------------------------|---------------------------------------------------------------------|
-| `central`              | Maven Central only. The default, and what every repo did before     |
-| `streamRepo`           | The Stream repository only                                          |
-| `central,streamRepo`   | Both, from one `./gradlew publish` and one set of signed bytes      |
+| `streamRepo`           | The Stream repository only. **The default**                         |
+| `central`              | Maven Central only. The fallback, opted into per repo               |
+| `streamRepo,central`   | Both, from one `./gradlew publish` and one set of signed bytes      |
 
-Both at once is the cutover mechanism rather than a special mode: `publish`
+The Stream repository is the default because not depending on Central is the
+point of the exercise. Nothing changes for a repo until it bumps its pinned
+conventions SHA, so **that bump is the cutover for that repo** — deliberate, and
+one repo at a time. A repo that is not ready passes `central` explicitly.
+
+Both at once is the dual-publish window rather than a special mode: `publish`
 pushes to every declared repository, so a single run produces a Central release
 and a staged tree for the Stream repository. While both are live Central stays
 authoritative — a failed upload fails the run but does not block the branch sync.
+
+**This repo is the standing exception.** `stream-build-conventions-android`
+publishes itself to `central` explicitly, because every SDK resolves these
+plugins through `pluginManagement`, which declares `mavenCentral()` and the
+plugin portal and never our repository.
 
 ## Snapshot vs Production Releases
 

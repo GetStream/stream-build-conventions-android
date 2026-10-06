@@ -38,14 +38,16 @@ import org.gradle.kotlin.dsl.project
 private const val groupId = "io.getstream"
 
 // Where artifacts go. Selected by a Gradle property so CI flips it with -P (or
-// ORG_GRADLE_PROJECT_streamPublishTargets) without a code change, and so the
-// default is exactly what every repo does today -- merging this cannot alter
-// anyone's release.
+// ORG_GRADLE_PROJECT_streamPublishTargets) without a code change.
 //
-// Both targets at once is the cutover mechanism, not a special mode: a single
-// `./gradlew publish` pushes to every declared repository, so one run produces
-// a Central release and a staged tree for the Stream repository from the same
-// signed bytes.
+// The DEFAULT IS THE STREAM REPOSITORY. Central is a fallback a repo opts into,
+// not the baseline -- the point of this work is that we stop depending on it.
+// Nothing changes for a repo until it bumps its pinned conventions SHA, so the
+// bump is the cutover for that repo, deliberately and one at a time.
+//
+// Both targets at once is the dual-publish window: a single `./gradlew publish`
+// pushes to every declared repository, so one run produces a Central release and
+// a staged tree for the Stream repository from the same signed bytes.
 private const val publishTargetsProperty = "streamPublishTargets"
 private const val targetCentral = "central"
 private const val targetStreamRepo = "streamRepo"
@@ -123,7 +125,7 @@ internal fun Project.configurePublishingModule() {
  * only surface as a missing artifact afterwards.
  */
 private fun Project.publishTargets(): Set<String> {
-    val raw = providers.gradleProperty(publishTargetsProperty).getOrElse(targetCentral)
+    val raw = providers.gradleProperty(publishTargetsProperty).getOrElse(targetStreamRepo)
     val targets = raw.split(",").map(String::trim).filter(String::isNotEmpty).toSet()
 
     val known = setOf(targetCentral, targetStreamRepo)

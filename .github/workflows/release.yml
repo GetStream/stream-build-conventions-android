@@ -24,12 +24,13 @@ on:
         default: false
       publish-targets:
         description: >-
-          Comma-separated: central, streamRepo, or both. Defaults to central,
-          which is what every repo did before this input existed, so leaving it
-          alone cannot change a release. Both at once is the cutover window.
+          Comma-separated: streamRepo, central, or both. Defaults to the Stream
+          repository; Central is a fallback a repo opts into. Nothing changes for
+          a repo until it bumps its pinned conventions SHA, so that bump is the
+          cutover. Both at once is the dual-publish window.
         required: false
         type: string
-        default: 'central'
+        default: 'streamRepo'
     secrets:
       github-token:
         description: 'GitHub token with repo write permissions'
