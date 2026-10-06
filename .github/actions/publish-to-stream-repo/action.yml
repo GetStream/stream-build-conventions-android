@@ -1,0 +1,138 @@
+name: 'Publish to Stream Repo'
+description: 'Uploads a staged Maven tree to the Stream repository and waits for it to be published'
+
+inputs:
+  staged-directory:
+    description: 'Directory holding the Maven-2 tree produced by the build'
+    required: false
+    default: 'build/staged-repo'
+  channel:
+    description: 'releases or snapshots'
+    required: true
+  run-id:
+    description: 'Unique id for this publish. Must differ per attempt — a re-run of a failed publish needs a fresh id, because a run that already reached a terminal state is not retried.'
+    required: false
+    default: ''
+  endpoint:
+    description: 'S3 API endpoint of the R2 account'
+    required: true
+  bucket:
+    description: 'Staging bucket name'
+    required: true
+  access-key-id:
+    description: 'R2 access key id, scoped to the staging bucket'
+    required: true
+  secret-access-key:
+    description: 'R2 secret access key'
+    required: true
+  timeout-seconds:
+    description: 'How long to wait for a terminal state'
+    required: false
+    default: '900'
+
+outputs:
+  run-id:
+    description: 'The run id the tree was published under'
+    value: ${{ steps.upload.outputs.run_id }}
+  objects:
+    description: 'Number of objects uploaded'
+    value: ${{ steps.upload.outputs.objects }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Upload staged tree
+      id: upload
+      shell: bash
+      env:
+        AWS_ACCESS_KEY_ID: ${{ inputs.access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.secret-access-key }}
+        AWS_DEFAULT_REGION: auto
+        # R2 rejects the extra integrity headers newer AWS CLI versions add by default
+        AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+        AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      run: |
+        set -euo pipefail
+
+        DIR="${{ inputs.staged-directory }}"
+        CHANNEL="${{ inputs.channel }}"
+        BUCKET="${{ inputs.bucket }}"
+        ENDPOINT="${{ inputs.endpoint }}"
+
+        case "$CHANNEL" in
+          releases|snapshots) ;;
+          *) echo "::error::channel must be 'releases' or 'snapshots', got '$CHANNEL'"; exit 1 ;;
+        esac
+
+        if [[ ! -d "$DIR" ]]; then
+          echo "::error::staged directory '$DIR' does not exist — did the publish task run?"
+          exit 1
+        fi
+
+        OBJECTS=$(find "$DIR" -type f | wc -l | tr -d ' ')
+        if [[ "$OBJECTS" -eq 0 ]]; then
+          echo "::error::staged directory '$DIR' is empty"
+          exit 1
+        fi
+
+        RUN_ID="${{ inputs.run-id }}"
+        # A re-run must not reuse the id: the worker skips runs that already
+        # reached a terminal state, so a retry under the old id would be ignored.
+        [[ -z "$RUN_ID" ]] && RUN_ID="gh-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+
+        echo "Uploading $OBJECTS objects to $CHANNEL/$RUN_ID"
+        aws s3 cp "$DIR" "s3://${BUCKET}/${CHANNEL}/${RUN_ID}/" \
+          --endpoint-url "$ENDPOINT" --recursive --only-show-errors
+
+        # The marker goes LAST and on its own. Promotion begins on the first
+        # notification that finds it, so uploading it with the tree would race
+        # the tree's own uploads and publish a half-written release.
+        echo "{\"objects\": ${OBJECTS}}" > /tmp/_complete.json
+        aws s3 cp /tmp/_complete.json "s3://${BUCKET}/${CHANNEL}/${RUN_ID}/_complete" \
+          --endpoint-url "$ENDPOINT" --content-type application/json --only-show-errors
+
+        echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+        echo "objects=$OBJECTS" >> "$GITHUB_OUTPUT"
+
+    - name: Wait for publication
+      shell: bash
+      env:
+        AWS_ACCESS_KEY_ID: ${{ inputs.access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.secret-access-key }}
+        AWS_DEFAULT_REGION: auto
+        AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+        AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      run: |
+        set -euo pipefail
+
+        KEY="${{ inputs.channel }}/${{ steps.upload.outputs.run_id }}/_status/status.json"
+        DEADLINE=$(( SECONDS + ${{ inputs.timeout-seconds }} ))
+        LAST=""
+
+        while (( SECONDS < DEADLINE )); do
+          if aws s3 cp "s3://${{ inputs.bucket }}/${KEY}" /tmp/status.json \
+               --endpoint-url "${{ inputs.endpoint }}" --only-show-errors 2>/dev/null; then
+            STATE=$(jq -r '.state' /tmp/status.json)
+            [[ "$STATE" != "$LAST" ]] && { echo "  $STATE"; LAST="$STATE"; }
+
+            case "$STATE" in
+              PUBLISHED)
+                jq -r '"published \(.detail.copied) objects, \(.detail.signaturesChecked) signatures verified"' /tmp/status.json
+                exit 0 ;;
+              FAILED)
+                echo "::error::publish failed during $(jq -r '.phase' /tmp/status.json): $(jq -r '.detail' /tmp/status.json)"
+                exit 1 ;;
+            esac
+          fi
+          sleep 5
+        done
+
+        # No status object at all means nothing ever consumed the run: the event
+        # notification did not fire, or the queue has no consumer. That is a
+        # different fault from a FAILED publish and needs a different fix.
+        if [[ -z "$LAST" ]]; then
+          echo "::error::timed out with no status object — the run was never picked up. Check the R2 event notification and the queue consumer."
+        else
+          echo "::error::timed out after ${{ inputs.timeout-seconds }}s, last state: $LAST"
+        fi
+        exit 1

@@ -1,0 +1,92 @@
+# Exercises the publish-to-stream-repo action against the real repository
+# without running a release. Publishes a throwaway artifact to the SNAPSHOT
+# channel, which has a 7-day expiry, so it cleans itself up.
+name: publish smoke test
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact:
+        description: 'Artifact id to publish'
+        required: false
+        default: 'publish-smoke'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage a throwaway snapshot tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          ART="${{ inputs.artifact }}"
+          VER="0.0.1-SNAPSHOT"
+          STAMP="$(date -u +%Y%m%d.%H%M%S)-1"
+          CONCRETE="${ART}-0.0.1-${STAMP}"
+          DIR="build/staged-repo/io/getstream/${ART}/${VER}"
+          mkdir -p "$DIR"
+
+          printf 'smoke %s\n' "$STAMP" > "$DIR/${CONCRETE}.jar"
+          cat > "$DIR/${CONCRETE}.pom" <<POM
+          <?xml version="1.0" encoding="UTF-8"?>
+          <project xmlns="http://maven.apache.org/POM/4.0.0">
+            <modelVersion>4.0.0</modelVersion>
+            <groupId>io.getstream</groupId>
+            <artifactId>${ART}</artifactId>
+            <version>${VER}</version>
+            <packaging>jar</packaging>
+          </project>
+          POM
+
+          # The version-level metadata is what maps -SNAPSHOT to the timestamped
+          # filename. The worker passes it through; it cannot derive it.
+          cat > "$DIR/maven-metadata.xml" <<META
+          <?xml version="1.0" encoding="UTF-8"?>
+          <metadata modelVersion="1.1.0">
+            <groupId>io.getstream</groupId>
+            <artifactId>${ART}</artifactId>
+            <versioning>
+              <snapshot><timestamp>${STAMP%-1}</timestamp><buildNumber>1</buildNumber></snapshot>
+              <snapshotVersions>
+                <snapshotVersion><extension>jar</extension><value>0.0.1-${STAMP}</value></snapshotVersion>
+                <snapshotVersion><extension>pom</extension><value>0.0.1-${STAMP}</value></snapshotVersion>
+              </snapshotVersions>
+            </versioning>
+            <version>${VER}</version>
+          </metadata>
+          META
+
+          find build/staged-repo -type f | sed 's|^|  |'
+
+      - name: Publish to the Stream repository
+        id: publish
+        uses: ./.github/actions/publish-to-stream-repo
+        with:
+          staged-directory: build/staged-repo
+          channel: snapshots
+          endpoint: ${{ secrets.STREAM_REPO_ENDPOINT }}
+          bucket: ${{ secrets.STREAM_REPO_BUCKET }}
+          access-key-id: ${{ secrets.STREAM_REPO_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.STREAM_REPO_SECRET_ACCESS_KEY }}
+
+      - name: Resolve what was just published
+        shell: bash
+        run: |
+          set -euo pipefail
+          ART="${{ inputs.artifact }}"
+          BASE="https://snapshots.stream-io-repo.com/io/getstream/${ART}"
+
+          echo "run id: ${{ steps.publish.outputs.run-id }} (${{ steps.publish.outputs.objects }} objects)"
+          echo "--- artifact-level metadata, derived by the worker ---"
+          curl -fsS "${BASE}/maven-metadata.xml"
+          echo "--- version-level metadata, passed through ---"
+          curl -fsS "${BASE}/0.0.1-SNAPSHOT/maven-metadata.xml"
