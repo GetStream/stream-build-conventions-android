@@ -41,14 +41,18 @@ jobs:
     with:
       bump: ${{ inputs.bump }}
       suffix: ${{ inputs.suffix }}
-      # Both, permanently -- not an exception, a dual publish.
+      # Both, while the repository is being proven -- the same dual-publish
+      # window every SDK gets, not a special status.
       #
-      # Central cannot be dropped here the way it can for an SDK: every repo
-      # resolves these plugins through pluginManagement, which declares
-      # mavenCentral() and the plugin portal and never our repository, so a
-      # plugin missing from Central fails the build while settings are still
-      # being evaluated. That is a reason to KEEP Central, not a reason to
-      # withhold the artifact from our own repository.
+      # This plugin is the FIRST thing we move, because its failures are the
+      # cheapest: a plugin that will not resolve blocks the handful of Android
+      # repos we own, and we fix it by editing settings.gradle.kts and pushing.
+      # An SDK that will not resolve blocks every customer build, and they can
+      # do nothing but wait for us.
+      #
+      # Central stays in each consumer's pluginManagement list as a fallback,
+      # which also covers the one risk unique to this artifact: the pipeline
+      # that would republish the plugin resolves the plugin.
       publish-targets: ${{ inputs.publish-targets }}
     secrets:
       github-token: ${{ secrets.STREAM_PUBLIC_BOT_TOKEN }}

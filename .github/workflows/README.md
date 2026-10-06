@@ -129,17 +129,26 @@ pushes to every declared repository, so a single run produces a Central release
 and a staged tree for the Stream repository. While both are live Central stays
 authoritative — a failed upload fails the run but does not block the branch sync.
 
-**This repo publishes to both, permanently.** Central cannot be dropped here the
-way it can for an SDK: every repo resolves these plugins through
-`pluginManagement`, which declares `mavenCentral()` and the plugin portal and
-never our repository — and a plugin missing from Central fails the build while
-settings are still being evaluated, before any build logic runs. That is a reason
-to keep Central, not to withhold the plugin from our own repository.
+**This repo is the pilot, not an exception.** The plugin is an ordinary Maven
+artifact under `io/getstream/` like everything else, and it is the first thing we
+move because its failures are the cheapest we can buy:
 
-Dropping Central here needs each consumer's `pluginManagement` to declare our
-repository first. Worth doing after the SDKs have moved, not before: a dependency
-that will not resolve breaks resolution, a plugin that will not resolve breaks
-the build before it starts.
+| If it will not resolve | Who is blocked | How it is fixed |
+|------------------------|----------------|------------------|
+| The conventions plugin | the handful of Android repos we own | edit `settings.gradle.kts`, push |
+| An SDK artifact        | every customer build                | they wait for us |
+
+Moving it also tests the repository continuously and without releasing anything:
+consumers resolve the plugin on **every** build, so each PR exercises publish and
+resolve together, rather than once per release.
+
+To resolve it from here, a consumer declares our repository in
+`pluginManagement.repositories` — ahead of `mavenCentral()`, since Gradle takes
+the first repository that has the artifact. Keeping Central in that list is the
+fallback, and it covers the one risk unique to this artifact: the pipeline that
+would republish the plugin resolves the plugin. Tighten to a `content {}` filter
+on `io.getstream.*` once it has been real for a while, so a regression cannot
+hide behind Central.
 
 One exception to the exception: the **first** release after the upload action
 merges must be dispatched with `publish-targets: central`. `release.yml`

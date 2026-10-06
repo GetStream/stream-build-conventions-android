@@ -16,9 +16,8 @@ jobs:
     with:
       bump: patch
       snapshot: true
-      # Both, for the reason given in publish-new-version.yml: Central is kept
-      # because pluginManagement never sees our repository, not because the
-      # plugin is excluded from the migration.
+      # Both, for the reason given in publish-new-version.yml: this plugin is the
+      # pilot for the migration, and Central is its fallback while it is proven.
       publish-targets: streamRepo,central
     secrets:
       github-token: ${{ secrets.STREAM_PUBLIC_BOT_TOKEN }}
