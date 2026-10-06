@@ -18,6 +18,16 @@ on:
         required: false
         type: string
         default: ''
+      publish-targets:
+        description: >-
+          Leave as-is. Pick central ONLY for the first release after the upload
+          action lands, which is the run that puts it on main for @main to find.
+        required: false
+        type: choice
+        options:
+          - streamRepo,central
+          - central
+        default: streamRepo,central
 
 concurrency:
   group: release
@@ -31,11 +41,15 @@ jobs:
     with:
       bump: ${{ inputs.bump }}
       suffix: ${{ inputs.suffix }}
-      # This repo is the exception to the new default, and stays on Central.
-      # Every SDK resolves these plugins through pluginManagement, which declares
-      # mavenCentral() and the plugin portal and not our repository -- publishing
-      # the plugin only to ourselves would break plugin resolution everywhere.
-      publish-targets: central
+      # Both, permanently -- not an exception, a dual publish.
+      #
+      # Central cannot be dropped here the way it can for an SDK: every repo
+      # resolves these plugins through pluginManagement, which declares
+      # mavenCentral() and the plugin portal and never our repository, so a
+      # plugin missing from Central fails the build while settings are still
+      # being evaluated. That is a reason to KEEP Central, not a reason to
+      # withhold the artifact from our own repository.
+      publish-targets: ${{ inputs.publish-targets }}
     secrets:
       github-token: ${{ secrets.STREAM_PUBLIC_BOT_TOKEN }}
       maven-central-username: ${{ secrets.OSSRH_USERNAME }}

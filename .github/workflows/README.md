@@ -129,10 +129,23 @@ pushes to every declared repository, so a single run produces a Central release
 and a staged tree for the Stream repository. While both are live Central stays
 authoritative — a failed upload fails the run but does not block the branch sync.
 
-**This repo is the standing exception.** `stream-build-conventions-android`
-publishes itself to `central` explicitly, because every SDK resolves these
-plugins through `pluginManagement`, which declares `mavenCentral()` and the
-plugin portal and never our repository.
+**This repo publishes to both, permanently.** Central cannot be dropped here the
+way it can for an SDK: every repo resolves these plugins through
+`pluginManagement`, which declares `mavenCentral()` and the plugin portal and
+never our repository — and a plugin missing from Central fails the build while
+settings are still being evaluated, before any build logic runs. That is a reason
+to keep Central, not to withhold the plugin from our own repository.
+
+Dropping Central here needs each consumer's `pluginManagement` to declare our
+repository first. Worth doing after the SDKs have moved, not before: a dependency
+that will not resolve breaks resolution, a plugin that will not resolve breaks
+the build before it starts.
+
+One exception to the exception: the **first** release after the upload action
+merges must be dispatched with `publish-targets: central`. `release.yml`
+references the action as `@main`, matching `bump-version` and `setup-gradle`, and
+that release is itself what syncs `main`. Every release after it uses the
+default.
 
 ## Snapshot vs Production Releases
 

@@ -16,9 +16,10 @@ jobs:
     with:
       bump: patch
       snapshot: true
-      # Central, for the same reason as publish-new-version.yml: the plugin has
-      # to be resolvable from pluginManagement, which never sees our repository.
-      publish-targets: central
+      # Both, for the reason given in publish-new-version.yml: Central is kept
+      # because pluginManagement never sees our repository, not because the
+      # plugin is excluded from the migration.
+      publish-targets: streamRepo,central
     secrets:
       github-token: ${{ secrets.STREAM_PUBLIC_BOT_TOKEN }}
       maven-central-username: ${{ secrets.OSSRH_USERNAME }}
