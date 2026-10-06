@@ -120,9 +120,9 @@ internal fun Project.configurePublishingModule() {
 /**
  * Which repositories this build publishes to.
  *
- * Unknown names fail the build rather than being ignored. A typo that silently
- * narrowed the set would publish to fewer places than the release expected and
- * only surface as a missing artifact afterwards.
+ * Unknown names fail the build rather than being ignored. A typo that silently narrowed the set
+ * would publish to fewer places than the release expected and only surface as a missing artifact
+ * afterwards.
  */
 private fun Project.publishTargets(): Set<String> {
     val raw = providers.gradleProperty(publishTargetsProperty).getOrElse(targetStreamRepo)
@@ -141,10 +141,9 @@ private fun Project.publishTargets(): Set<String> {
 /**
  * Stages the Maven-2 tree on disk for the Stream repository upload.
  *
- * Gradle could write to the bucket directly over the S3-compatible endpoint,
- * which is fewer moving parts -- but that puts the upload credential in the same
- * job as the signing key. Staging to a directory is what lets CI hand the tree
- * to a separate job that has never seen the key.
+ * Gradle could write to the bucket directly over the S3-compatible endpoint, which is fewer moving
+ * parts -- but that puts the upload credential in the same job as the signing key. Staging to a
+ * directory is what lets CI hand the tree to a separate job that has never seen the key.
  */
 private fun Project.configureStreamRepoStaging() {
     val staging = rootProject.layout.buildDirectory.dir(stagingDirectory)
