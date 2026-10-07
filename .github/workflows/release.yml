@@ -113,7 +113,7 @@ jobs:
       # bucket itself over the S3 endpoint.
       - name: Hand the staged tree to the upload job
         if: ${{ contains(inputs.publish-targets, 'streamRepo') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: stream-repo-staged-snapshot
           path: build/staged-repo
@@ -271,7 +271,7 @@ jobs:
       - name: Hand the staged tree to the upload job
         id: handoff
         if: ${{ contains(inputs.publish-targets, 'streamRepo') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: stream-repo-staged-release
           path: build/staged-repo
