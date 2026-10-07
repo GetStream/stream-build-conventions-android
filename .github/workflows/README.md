@@ -169,10 +169,21 @@ together rather than once per release — and with the artifact in no other
 repository, a consumer that lists ours has to actually reach it, instead of
 falling back to Central and reporting green while exercising nothing.
 
-One genuine exception: the **first** release after the upload action merges must
-be dispatched with `publish-targets: central`. `release.yml` references the
-action as `@main`, matching `bump-version` and `setup-gradle`, and that release
-is itself what syncs `main`. Every release after it uses the default.
+**One bootstrap step, once.** `release.yml` references the upload action as
+`@main`, matching `bump-version` and `setup-gradle`, so `main` has to carry it
+before any upload job runs. After this merges to `develop`, fast-forward it:
+
+```
+git push origin origin/develop:main
+```
+
+`main` is the stable mirror and sits behind `develop` by whatever has not been
+released, so this is the same move `sync_branches` makes at the end of a release
+— just done directly instead of as a side effect of one. Nothing needs to be
+published to Central to get there.
+
+The `central` option on the dispatch input stays as a manual escape hatch if a
+release ever has to go out before the Stream repository can take it.
 
 ## Snapshot vs Production Releases
 

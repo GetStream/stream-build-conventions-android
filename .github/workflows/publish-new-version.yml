@@ -20,8 +20,8 @@ on:
         default: ''
       publish-targets:
         description: >-
-          Leave as-is. Pick central ONLY for the first release after the upload
-          action lands, which is the run that puts it on main for @main to find.
+          Leave as-is. central is a manual escape hatch for a release that has to
+          go out when the Stream repository cannot take it.
         required: false
         type: choice
         options:
