@@ -216,7 +216,11 @@ jobs:
     uses: GetStream/stream-build-conventions-android/.github/workflows/publish-api-docs.yml@<sha>
     permissions:
       contents: write
+    secrets:
+      slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_ANDROID_CICD }}
 ```
+
+Manual runs publish only from `main`. Failures post to the Slack webhook.
 
 ## Environment Variables
 

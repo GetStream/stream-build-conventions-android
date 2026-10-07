@@ -3,11 +3,7 @@ name: Publish API Docs
 # Builds the Dokka HTML site and pushes it to the gh-pages branch. Kept out of
 # release.yml so artifact publishing never waits on it; callers trigger it on
 # push to main, which the release workflow fast-forwards after each release.
-# The push trigger publishes this repo's own docs.
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
   workflow_call:
     inputs:
       ref:
@@ -19,6 +15,9 @@ on:
       github-token:
         description: 'Token with write access to the gh-pages branch. Defaults to GITHUB_TOKEN.'
         required: false
+      slack-webhook-url:
+        description: 'Slack incoming webhook URL for failure notifications'
+        required: false
 
 concurrency:
   group: api-docs-${{ github.repository }}
@@ -26,6 +25,9 @@ concurrency:
 
 jobs:
   publish-api-docs:
+    # A manual run from any other branch would replace the live docs with
+    # unreleased APIs. Called runs see the caller's event and ref.
+    if: ${{ github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -47,3 +49,22 @@ jobs:
           github_token: ${{ secrets.github-token || github.token }}
           publish_dir: ./build/dokka/html
           publish_branch: gh-pages
+
+      - name: Notify Slack on docs failure
+        if: failure()
+        uses: slackapi/slack-github-action@v4.0.0
+        with:
+          webhook: ${{ secrets.slack-webhook-url }}
+          webhook-type: incoming-webhook
+          errors: true
+          payload: |
+            text: ":warning: API docs publish failed for ${{ github.repository }}"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: ":warning: *API docs publish failed* for `${{ github.repository }}`. The release is unaffected; the docs site is behind until this is re-run."
+              - type: "context"
+                elements:
+                  - type: "mrkdwn"
+                    text: "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
