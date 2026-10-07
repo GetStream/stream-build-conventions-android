@@ -310,10 +310,15 @@ jobs:
                   type: "mrkdwn"
                   text: |-
                     :x: *Published `${{ steps.tag.outputs.name }}` but could not hand over the staged tree* for `${{ github.repository }}` <!subteam^S0117TSPFH7>
-                    The publish step succeeded; handing the tree to the upload job did not, so the Stream repository upload never ran. The tag and GitHub Release are valid — do NOT delete them. Suggested steps:
+                    The publish step succeeded; handing the tree to the upload job did not, so the Stream repository upload never ran and the branch sync was skipped. Re-running this run will not work: it stops at the tag check. Suggested steps:
                     1. Check the failure in the <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|workflow run>
-                    2. If `central` was among the publish targets, the release is live there and only the Stream repository copy is missing
-                    3. If it was not, the artifacts are not published anywhere yet and the release must be re-run
+                    2. If `central` was among the publish targets, the release was submitted there (check on Sonatype that it went through). Keep the tag and GitHub Release, and finish the branch sync manually:
+                       a. Merge <${{ github.server_url }}/${{ github.repository }}/tree/${{ steps.release-branch.outputs.name }}|`${{ steps.release-branch.outputs.name }}`> into `${{ github.ref_name }}` (and `main`, if applicable)
+                       b. Delete `${{ steps.release-branch.outputs.name }}`
+                       The Stream repository will only get this code with the next release.
+                    3. If it was not, nothing is published anywhere. Clean up, then dispatch the release again:
+                       a. <${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.tag.outputs.name }}|GitHub Release for `${{ steps.tag.outputs.name }}`>: delete it
+                       b. <${{ github.server_url }}/${{ github.repository }}/tags|Git tag `${{ steps.tag.outputs.name }}`>: delete after deleting the release
               - type: "context"
                 elements:
                   - type: "mrkdwn"
@@ -467,8 +472,9 @@ jobs:
                     :x: *Upload of `${{ needs.publish-release.outputs.release-tag }}` to the Stream repository failed* for `${{ github.repository }}` <!subteam^S0117TSPFH7>
                     The release is tagged and the GitHub Release exists. Suggested steps:
                     1. Check the failure in the <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|workflow run>
-                    2. If `central` was among the publish targets, the release is live there and only the Stream repository copy is missing — the branch sync has already run
-                    3. If it was not, the artifacts are published nowhere, the branch sync was deliberately held back, and the release must be re-run
+                    2. Fix the cause, then use *Re-run failed jobs* within 24 hours (the staged tree is kept for one day). Do not use "Re-run all jobs": publish-release would stop at the tag check.
+                    3. If `central` was among the publish targets, the branch sync runs anyway and only the Stream repository copy is missing. If it was not, the sync was held back and runs once the re-run upload succeeds.
+                    4. After 24 hours, if `central` was not a target: delete the <${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ needs.publish-release.outputs.release-tag }}|GitHub Release> and then the <${{ github.server_url }}/${{ github.repository }}/tags|tag `${{ needs.publish-release.outputs.release-tag }}`>, and dispatch the release again. If it was, the Stream repository will only get this code with the next release.
               - type: "context"
                 elements:
                   - type: "mrkdwn"
