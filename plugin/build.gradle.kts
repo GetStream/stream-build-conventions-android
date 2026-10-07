@@ -34,6 +34,20 @@ dependencies {
 val repoId = "GetStream/stream-build-conventions-android"
 val repoUrl = "https://github.com/$repoId"
 
+// This module publishes itself with vanniktech directly -- it cannot apply the
+// convention plugin it is building -- so the publish targets are read here too.
+// Same property name and same default as PublishingConfiguration.kt; the small
+// duplication is the price of the chicken-and-egg, and without it a run that
+// asks for streamRepo silently produces no staged tree at all.
+val publishTargets =
+    providers
+        .gradleProperty("streamPublishTargets")
+        .getOrElse("central")
+        .split(",")
+        .map(String::trim)
+        .filter(String::isNotEmpty)
+        .toSet()
+
 gradlePlugin {
     website = repoUrl
     vcsUrl = repoUrl
@@ -85,8 +99,21 @@ gradlePlugin {
     }
 }
 
+if ("streamRepo" in publishTargets) {
+    publishing {
+        repositories {
+            maven {
+                name = "streamRepoStaging"
+                url = rootProject.layout.buildDirectory.dir("staged-repo").get().asFile.toURI()
+            }
+        }
+    }
+}
+
 mavenPublishing {
-    publishToMavenCentral(automaticRelease = true)
+    if ("central" in publishTargets) {
+        publishToMavenCentral(automaticRelease = true)
+    }
     configure(
         GradlePlugin(
             javadocJar = JavadocJar.Dokka("dokkaGeneratePublicationJavadoc"),

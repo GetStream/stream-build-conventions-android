@@ -37,6 +37,38 @@ import org.gradle.kotlin.dsl.project
 
 private const val groupId = "io.getstream"
 
+// Where artifacts go. Selected by ORG_GRADLE_PROJECT_streamPublishTargets so CI
+// chooses without a code change.
+//
+// CI aims at the Stream repository: that is release.yml's default for the input,
+// and it passes the value explicitly on every run. But when NOTHING passes the
+// property, this falls back to `central`, because the two situations where that
+// happens both want the old behaviour:
+//
+//   A local build. `publishToMavenLocal` with no property would otherwise take
+//   the streamRepo path, and vanniktech makes signing REQUIRED for any non
+//   -SNAPSHOT version, so the usual `-Pversion=local-test` flow for trying an
+//   SDK inside a consumer app fails with "no configured signatory".
+//
+//   A repo that has the new plugin and the old workflow. SDK repos bump the
+//   release.yml pin and the plugin version from different Dependabot ecosystems
+//   (github-actions and gradle), so they land as separate PRs and that window is
+//   routine, not hypothetical. An old workflow passes no property; defaulting to
+//   streamRepo there would stage to disk with nothing to upload it, and tag and
+//   sync a release whose artifacts exist nowhere at all.
+//
+// Both targets at once is the dual-publish window: a single `./gradlew publish`
+// pushes to every declared repository, so one run produces a Central release and
+// a staged tree for the Stream repository from the same signed bytes.
+private const val publishTargetsProperty = "streamPublishTargets"
+private const val targetCentral = "central"
+private const val targetStreamRepo = "streamRepo"
+
+// One tree for the whole build, under the ROOT build directory -- the upload
+// step ships a single Maven-2 tree, and a per-module directory would give it
+// one tree per module. Matches the composite action's default staged-directory.
+private const val stagingDirectory = "staged-repo"
+
 internal fun Project.configurePublishingRoot() {
     pluginManager.apply("org.jetbrains.dokka")
 
@@ -65,9 +97,27 @@ internal fun Project.configurePublishingModule() {
     this.group = groupId
     this.version = computeVersion()
 
+    val targets = publishTargets()
+
     pluginManager.withPlugin("com.vanniktech.maven.publish") {
         extensions.configure<MavenPublishBaseExtension> {
-            publishToMavenCentral(automaticRelease = true)
+            if (targetCentral in targets) {
+                publishToMavenCentral(automaticRelease = true)
+            }
+
+            // NOTHING CALLS signAllPublications() HERE, DELIBERATELY.
+            //
+            // vanniktech's own plugin already calls it whenever
+            // RELEASE_SIGNING_ENABLED is set, and that call does
+            // `signing.set(true); signing.finalizeValue()`. A second call then
+            // fails with "The value for this property is final and cannot be
+            // changed any further" -- during plugin application, so it takes the
+            // whole build down, and in publish-release that happens AFTER the tag
+            // and the GitHub Release exist.
+            //
+            // Signing a release for the Stream repository is still required: it
+            // comes from RELEASE_SIGNING_ENABLED, which release.yml always sets,
+            // and the repository refuses an unsigned release run as the backstop.
 
             coordinates(groupId = groupId, artifactId = artifactId, version = version.toString())
 
@@ -75,9 +125,54 @@ internal fun Project.configurePublishingModule() {
 
             configurePom(projectExtension, artifactId)
         }
+
+        if (targetStreamRepo in targets) {
+            configureStreamRepoStaging()
+        }
     }
 
     rootProject.registerPrintAllArtifactsTask()
+}
+
+/**
+ * Which repositories this build publishes to.
+ *
+ * Unknown names fail the build rather than being ignored. A typo that silently narrowed the set
+ * would publish to fewer places than the release expected and only surface as a missing artifact
+ * afterwards.
+ */
+private fun Project.publishTargets(): Set<String> {
+    val raw = providers.gradleProperty(publishTargetsProperty).getOrElse(targetCentral)
+    val targets = raw.split(",").map(String::trim).filter(String::isNotEmpty).toSet()
+
+    val known = setOf(targetCentral, targetStreamRepo)
+    val unknown = targets - known
+    require(targets.isNotEmpty() && unknown.isEmpty()) {
+        "'$publishTargetsProperty' must be a comma-separated subset of " +
+            "${known.joinToString()} but was '$raw'"
+    }
+
+    return targets
+}
+
+/**
+ * Stages the Maven-2 tree on disk for the Stream repository upload.
+ *
+ * Gradle could write to the bucket directly over the S3-compatible endpoint, which is fewer moving
+ * parts -- but that puts the upload credential in the same job as the signing key. Staging to a
+ * directory is what lets CI hand the tree to a separate job that has never seen the key.
+ */
+private fun Project.configureStreamRepoStaging() {
+    val staging = rootProject.layout.buildDirectory.dir(stagingDirectory)
+
+    extensions.configure<PublishingExtension> {
+        repositories {
+            maven {
+                name = "streamRepoStaging"
+                url = staging.get().asFile.toURI()
+            }
+        }
+    }
 }
 
 // Get the overridden artifact ID if present or use the project name as default

@@ -22,6 +22,15 @@ on:
         required: false
         type: boolean
         default: false
+      publish-targets:
+        description: >-
+          Comma-separated: streamRepo, central, or both. Defaults to the Stream
+          repository; Central is a fallback a repo opts into. Nothing changes for
+          a repo until it bumps its pinned conventions SHA, so that bump is the
+          cutover. Both at once is the dual-publish window.
+        required: false
+        type: string
+        default: 'streamRepo'
     secrets:
       github-token:
         description: 'GitHub token with repo write permissions'
@@ -44,6 +53,20 @@ on:
       slack-webhook-url:
         description: 'Slack incoming webhook URL for release notifications'
         required: true
+      # Only read by the upload jobs, which never see the signing key. Optional,
+      # so a repo publishing to Central alone needs no new secrets at all.
+      stream-repo-endpoint:
+        description: 'S3 API endpoint of the R2 account hosting the Stream repository'
+        required: false
+      stream-repo-bucket:
+        description: 'Staging bucket name'
+        required: false
+      stream-repo-access-key-id:
+        description: 'R2 access key id, scoped to the staging bucket'
+        required: false
+      stream-repo-secret-access-key:
+        description: 'R2 secret access key'
+        required: false
 
 jobs:
   publish-snapshot:
@@ -72,6 +95,11 @@ jobs:
       - name: Build and publish snapshot
         run: ./gradlew publish printAllArtifacts --no-configuration-cache
         env:
+          # Passed as an environment variable rather than -P: interpolated into
+          # the command line unquoted, a value with a space ("streamRepo, central",
+          # which the parser trims and accepts) would split into a second argument
+          # and Gradle would fail with "Task 'central' not found".
+          ORG_GRADLE_PROJECT_streamPublishTargets: ${{ inputs.publish-targets }}
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.maven-central-username }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.maven-central-password }}
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.signing-key }}
@@ -79,6 +107,18 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.signing-key-password }}
           ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: true
           SNAPSHOT: true
+
+      # Handed to a job that has never seen the signing key. That split is the
+      # whole reason Gradle stages to a directory instead of writing to the
+      # bucket itself over the S3 endpoint.
+      - name: Hand the staged tree to the upload job
+        if: ${{ contains(inputs.publish-targets, 'streamRepo') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: stream-repo-staged-snapshot
+          path: build/staged-repo
+          retention-days: 1
+          if-no-files-found: error
 
       - name: Notify Slack on snapshot failure
         if: failure()
@@ -230,6 +270,8 @@ jobs:
         id: publish
         run: ./gradlew publish --no-configuration-cache
         env:
+          # See the note on the snapshot job: -P would word-split on a space.
+          ORG_GRADLE_PROJECT_streamPublishTargets: ${{ inputs.publish-targets }}
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.maven-central-username }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.maven-central-password }}
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.signing-key }}
@@ -238,8 +280,52 @@ jobs:
           ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: true
           SNAPSHOT: false
 
+      - name: Hand the staged tree to the upload job
+        id: handoff
+        if: ${{ contains(inputs.publish-targets, 'streamRepo') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: stream-repo-staged-release
+          path: build/staged-repo
+          retention-days: 1
+          if-no-files-found: error
+
+      # The three failure notifications below are mutually exclusive and keyed on
+      # how far the publish step got. The hand-off case needs its own: it runs
+      # AFTER a successful publish, so the pre-publish message would tell whoever
+      # is on call that nothing reached Central and to delete the tag of a version
+      # that is live there.
+      - name: Notify Slack on hand-off failure
+        if: failure() && steps.publish.outcome == 'success'
+        uses: slackapi/slack-github-action@v4.0.0
+        with:
+          webhook: ${{ secrets.slack-webhook-url }}
+          webhook-type: incoming-webhook
+          errors: true
+          payload: |
+            text: ":x: Published ${{ steps.tag.outputs.name }} but could not hand over the staged tree for ${{ github.repository }} <!subteam^S0117TSPFH7>"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: |-
+                    :x: *Published `${{ steps.tag.outputs.name }}` but could not hand over the staged tree* for `${{ github.repository }}` <!subteam^S0117TSPFH7>
+                    The publish step succeeded; handing the tree to the upload job did not, so the Stream repository upload never ran and the branch sync was skipped. Re-running this run will not work: it stops at the tag check. Suggested steps:
+                    1. Check the failure in the <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|workflow run>
+                    2. If `central` was among the publish targets, the release was submitted there (check on Sonatype that it went through). Keep the tag and GitHub Release, and finish the branch sync manually:
+                       a. Merge <${{ github.server_url }}/${{ github.repository }}/tree/${{ steps.release-branch.outputs.name }}|`${{ steps.release-branch.outputs.name }}`> into `${{ github.ref_name }}` (and `main`, if applicable)
+                       b. Delete `${{ steps.release-branch.outputs.name }}`
+                       The Stream repository will only get this code with the next release.
+                    3. If it was not, nothing is published anywhere. Clean up, then dispatch the release again:
+                       a. <${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.tag.outputs.name }}|GitHub Release for `${{ steps.tag.outputs.name }}`>: delete it
+                       b. <${{ github.server_url }}/${{ github.repository }}/tags|Git tag `${{ steps.tag.outputs.name }}`>: delete after deleting the release
+              - type: "context"
+                elements:
+                  - type: "mrkdwn"
+                    text: "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+
       - name: Notify Slack on pre-publish failure
-        if: failure() && steps.publish.conclusion != 'failure'
+        if: failure() && steps.publish.outcome == 'skipped'
         uses: slackapi/slack-github-action@v4.0.0
         with:
           webhook: ${{ secrets.slack-webhook-url }}
@@ -265,7 +351,7 @@ jobs:
                     text: "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
 
       - name: Notify Slack on publish failure
-        if: failure() && steps.publish.conclusion == 'failure'
+        if: failure() && steps.publish.outcome == 'failure'
         uses: slackapi/slack-github-action@v4.0.0
         with:
           webhook: ${{ secrets.slack-webhook-url }}
@@ -294,9 +380,122 @@ jobs:
                   - type: "mrkdwn"
                     text: "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
 
-  sync_branches:
-    if: ${{ !inputs.snapshot }}
+  # --- Stream repository upload -------------------------------------------
+  #
+  # Separate jobs, because secrets are injected per job: these hold the R2
+  # credential and never the signing key, and the publish jobs above hold the
+  # signing key and never the R2 credential. Two secrets in one job is one blast
+  # radius, and that is exactly what signature verification on the other end is
+  # supposed to bound.
+  #
+  # Deliberately NOT a dependency of sync_branches. While both targets are live,
+  # Central is still authoritative; a fault in the new path must not strand a
+  # finished release with its branches unmerged. It fails the run so we see it.
+
+  upload-snapshot-to-stream-repo:
+    if: ${{ inputs.snapshot && contains(inputs.publish-targets, 'streamRepo') }}
+    needs: publish-snapshot
+    name: Upload snapshot to the Stream repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the staged tree
+        uses: actions/download-artifact@v4
+        with:
+          name: stream-repo-staged-snapshot
+          path: build/staged-repo
+
+      - name: Publish to the Stream repository
+        uses: GetStream/stream-build-conventions-android/.github/actions/publish-to-stream-repo@main
+        with:
+          staged-directory: build/staged-repo
+          channel: snapshots
+          endpoint: ${{ secrets.stream-repo-endpoint }}
+          bucket: ${{ secrets.stream-repo-bucket }}
+          access-key-id: ${{ secrets.stream-repo-access-key-id }}
+          secret-access-key: ${{ secrets.stream-repo-secret-access-key }}
+
+      - name: Notify Slack on upload failure
+        if: failure()
+        uses: slackapi/slack-github-action@v4.0.0
+        with:
+          webhook: ${{ secrets.slack-webhook-url }}
+          webhook-type: incoming-webhook
+          errors: true
+          payload: |
+            text: ":x: Snapshot upload to the Stream repository failed for ${{ github.repository }} <!subteam^S0117TSPFH7>"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: ":x: *Snapshot upload to the Stream repository failed* for `${{ github.repository }}` <!subteam^S0117TSPFH7>"
+              - type: "context"
+                elements:
+                  - type: "mrkdwn"
+                    text: "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+
+  upload-release-to-stream-repo:
+    if: ${{ !inputs.snapshot && contains(inputs.publish-targets, 'streamRepo') }}
     needs: publish-release
+    name: Upload release to the Stream repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the staged tree
+        uses: actions/download-artifact@v4
+        with:
+          name: stream-repo-staged-release
+          path: build/staged-repo
+
+      - name: Publish to the Stream repository
+        uses: GetStream/stream-build-conventions-android/.github/actions/publish-to-stream-repo@main
+        with:
+          staged-directory: build/staged-repo
+          channel: releases
+          endpoint: ${{ secrets.stream-repo-endpoint }}
+          bucket: ${{ secrets.stream-repo-bucket }}
+          access-key-id: ${{ secrets.stream-repo-access-key-id }}
+          secret-access-key: ${{ secrets.stream-repo-secret-access-key }}
+
+      - name: Notify Slack on upload failure
+        if: failure()
+        uses: slackapi/slack-github-action@v4.0.0
+        with:
+          webhook: ${{ secrets.slack-webhook-url }}
+          webhook-type: incoming-webhook
+          errors: true
+          payload: |
+            text: ":x: Upload of ${{ needs.publish-release.outputs.release-tag }} to the Stream repository failed for ${{ github.repository }} <!subteam^S0117TSPFH7>"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: |-
+                    :x: *Upload of `${{ needs.publish-release.outputs.release-tag }}` to the Stream repository failed* for `${{ github.repository }}` <!subteam^S0117TSPFH7>
+                    The release is tagged and the GitHub Release exists. Suggested steps:
+                    1. Check the failure in the <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|workflow run>
+                    2. Fix the cause, then use *Re-run failed jobs* within 24 hours (the staged tree is kept for one day). Do not use "Re-run all jobs": publish-release would stop at the tag check.
+                    3. If `central` was among the publish targets, the branch sync runs anyway and only the Stream repository copy is missing. If it was not, the sync was held back and runs once the re-run upload succeeds.
+                    4. After 24 hours, if `central` was not a target: delete the <${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ needs.publish-release.outputs.release-tag }}|GitHub Release> and then the <${{ github.server_url }}/${{ github.repository }}/tags|tag `${{ needs.publish-release.outputs.release-tag }}`>, and dispatch the release again. If it was, the Stream repository will only get this code with the next release.
+              - type: "context"
+                elements:
+                  - type: "mrkdwn"
+                    text: "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+
+  sync_branches:
+    # Waits for the upload when the Stream repository is the ONLY target, because
+    # then a failed upload means the release is tagged with its artifacts
+    # published nowhere, and syncing would bless that state. When central is also
+    # a target the release is live there regardless, and blocking the sync would
+    # strand a perfectly good release over a missing second copy.
+    #
+    # always() is required: without it, a skipped upload job skips this one too.
+    if: >-
+      ${{ always()
+          && !inputs.snapshot
+          && needs.publish-release.result == 'success'
+          && (needs.upload-release-to-stream-repo.result == 'success'
+              || needs.upload-release-to-stream-repo.result == 'skipped'
+              || contains(inputs.publish-targets, 'central')) }}
+    needs: [publish-release, upload-release-to-stream-repo]
     name: Sync branches with release
     runs-on: ubuntu-latest
     steps:
