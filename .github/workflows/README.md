@@ -146,32 +146,33 @@ pushes to every declared repository, so a single run produces a Central release
 and a staged tree for the Stream repository. While both are live Central stays
 authoritative — a failed upload fails the run but does not block the branch sync.
 
-**This repo is the pilot, not an exception.** The plugin is an ordinary Maven
-artifact under `io/getstream/` like everything else, and it is the first thing we
-move because its failures are the cheapest we can buy:
+**This repo is the pilot, and it publishes to `streamRepo` only** — no dual
+publish, no exception. The plugin is an ordinary Maven artifact under
+`io/getstream/` like everything else, and it goes first because it is the
+cheapest thing to get wrong: a plugin that will not resolve blocks the handful of
+Android repos we own, while an SDK that will not resolve blocks every customer
+build.
 
-| If it will not resolve | Who is blocked | How it is fixed |
-|------------------------|----------------|------------------|
-| The conventions plugin | the handful of Android repos we own | edit `settings.gradle.kts`, push |
-| An SDK artifact        | every customer build                | they wait for us |
+Nothing breaks when Central stops receiving it, for the same reason it does not
+break for an SDK: **every version already on Central stays there and stays
+resolvable.** A repo that does not bump its pin never notices. A repo that does
+bump adds our repository to its `pluginManagement.repositories` in the same pull
+request, because the new version exists nowhere else.
 
-Moving it also tests the repository continuously and without releasing anything:
-consumers resolve the plugin on **every** build, so each PR exercises publish and
-resolve together, rather than once per release.
+There is no bootstrap deadlock either. This repo's own build applies `base`,
+`kotlin-jvm`, `detekt`, `spotless` and `dokka` — never the plugin it produces —
+so republishing it never depends on resolving it.
 
-To resolve it from here, a consumer declares our repository in
-`pluginManagement.repositories` — ahead of `mavenCentral()`, since Gradle takes
-the first repository that has the artifact. Keeping Central in that list is the
-fallback, and it covers the one risk unique to this artifact: the pipeline that
-would republish the plugin resolves the plugin. Tighten to a `content {}` filter
-on `io.getstream.*` once it has been real for a while, so a regression cannot
-hide behind Central.
+Publishing here only is also what makes the pilot mean something. Consumers
+resolve the plugin on **every** build, so each PR exercises publish and resolve
+together rather than once per release — and with the artifact in no other
+repository, a consumer that lists ours has to actually reach it, instead of
+falling back to Central and reporting green while exercising nothing.
 
-One exception to the exception: the **first** release after the upload action
-merges must be dispatched with `publish-targets: central`. `release.yml`
-references the action as `@main`, matching `bump-version` and `setup-gradle`, and
-that release is itself what syncs `main`. Every release after it uses the
-default.
+One genuine exception: the **first** release after the upload action merges must
+be dispatched with `publish-targets: central`. `release.yml` references the
+action as `@main`, matching `bump-version` and `setup-gradle`, and that release
+is itself what syncs `main`. Every release after it uses the default.
 
 ## Snapshot vs Production Releases
 

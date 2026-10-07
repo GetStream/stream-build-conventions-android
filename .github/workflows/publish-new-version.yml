@@ -25,9 +25,10 @@ on:
         required: false
         type: choice
         options:
+          - streamRepo
           - streamRepo,central
           - central
-        default: streamRepo,central
+        default: streamRepo
 
 concurrency:
   group: release
@@ -41,18 +42,22 @@ jobs:
     with:
       bump: ${{ inputs.bump }}
       suffix: ${{ inputs.suffix }}
-      # Both, while the repository is being proven -- the same dual-publish
-      # window every SDK gets, not a special status.
+      # The Stream repository only, exactly like an SDK. No dual publish, and no
+      # exception for this repo.
       #
-      # This plugin is the FIRST thing we move, because its failures are the
-      # cheapest: a plugin that will not resolve blocks the handful of Android
-      # repos we own, and we fix it by editing settings.gradle.kts and pushing.
-      # An SDK that will not resolve blocks every customer build, and they can
-      # do nothing but wait for us.
+      # Nothing breaks, for the same reason it does not break for an SDK: every
+      # version already on Central stays there and stays resolvable, so a repo
+      # that does not bump its pin never notices. A repo that DOES bump adds our
+      # repository to its pluginManagement in the same pull request, because the
+      # new version exists nowhere else.
       #
-      # Central stays in each consumer's pluginManagement list as a fallback,
-      # which also covers the one risk unique to this artifact: the pipeline
-      # that would republish the plugin resolves the plugin.
+      # There is also no bootstrap deadlock to insure against. This repo's own
+      # build applies base, kotlin-jvm, detekt, spotless and dokka -- never the
+      # plugin it produces -- so republishing never depends on resolving it.
+      #
+      # Publishing here only is what makes the pilot mean something: a consumer
+      # that lists our repository has to actually reach it, instead of falling
+      # back to Central and reporting green while exercising nothing.
       publish-targets: ${{ inputs.publish-targets }}
     secrets:
       github-token: ${{ secrets.STREAM_PUBLIC_BOT_TOKEN }}
