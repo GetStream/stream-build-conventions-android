@@ -1,0 +1,49 @@
+name: Publish API Docs
+
+# Builds the Dokka HTML site and pushes it to the gh-pages branch. Kept out of
+# release.yml so artifact publishing never waits on it; callers trigger it on
+# push to main, which the release workflow fast-forwards after each release.
+# The push trigger publishes this repo's own docs.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Git ref to build the docs from. Defaults to the triggering commit.'
+        required: false
+        type: string
+        default: ''
+    secrets:
+      github-token:
+        description: 'Token with write access to the gh-pages branch. Defaults to GITHUB_TOKEN.'
+        required: false
+
+concurrency:
+  group: api-docs-${{ github.repository }}
+  cancel-in-progress: true
+
+jobs:
+  publish-api-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup Gradle
+        uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
+
+      - name: Generate Dokka HTML docs
+        run: ./gradlew dokkaGeneratePublicationHtml
+
+      - name: Publish docs to GitHub pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.github-token || github.token }}
+          publish_dir: ./build/dokka/html
+          publish_branch: gh-pages
