@@ -387,7 +387,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download the staged tree
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: stream-repo-staged-snapshot
           path: build/staged-repo
@@ -428,7 +428,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download the staged tree
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: stream-repo-staged-release
           path: build/staged-repo
