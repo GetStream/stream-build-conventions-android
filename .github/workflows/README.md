@@ -110,8 +110,25 @@ and they are read only by the upload jobs — which never see the signing key.
 ## Publish targets
 
 `publish-targets` selects the repositories a run publishes to. It reaches Gradle
-as `-PstreamPublishTargets` and an unrecognised name fails the build rather than
-being skipped.
+as `ORG_GRADLE_PROJECT_streamPublishTargets` — an environment variable rather
+than `-P`, so a value containing a space cannot word-split into a second Gradle
+argument. An unrecognised name fails the build rather than being skipped.
+
+**Two defaults, and they differ on purpose.** This input defaults to
+`streamRepo`, and CI always passes it explicitly. The *plugin* falls back to
+`central` when nothing passes the property at all, which covers the two cases
+where that happens:
+
+- **Local builds.** `publishToMavenLocal` with no property would otherwise take
+  the `streamRepo` path, and vanniktech makes signing required for any non
+  `-SNAPSHOT` version — breaking the usual `-Pversion=local-test` flow with
+  `no configured signatory`.
+- **New plugin, old workflow.** SDK repos bump the `release.yml` pin and the
+  plugin version from different Dependabot ecosystems (`github-actions` and
+  `gradle`), so they arrive as separate PRs and this window is routine. An old
+  workflow passes no property; defaulting to `streamRepo` there would stage to
+  disk with nothing to upload it, and tag and sync a release whose artifacts
+  exist nowhere.
 
 | Value                  | Effect                                                              |
 |------------------------|---------------------------------------------------------------------|

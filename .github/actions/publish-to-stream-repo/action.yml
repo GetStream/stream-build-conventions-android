@@ -110,8 +110,12 @@ runs:
         LAST=""
 
         while (( SECONDS < DEADLINE )); do
-          if aws s3 cp "s3://${{ inputs.bucket }}/${KEY}" /tmp/status.json \
-               --endpoint-url "${{ inputs.endpoint }}" --only-show-errors 2>/dev/null; then
+          # Only "not there yet" is a reason to keep waiting. Treating every
+          # failure as that turns a rotated key or a wrong endpoint into a full
+          # 900s wait ending in "the run was never picked up", which sends
+          # whoever is debugging at the queue consumer instead of the credential.
+          if ERR=$(aws s3 cp "s3://${{ inputs.bucket }}/${KEY}" /tmp/status.json \
+                     --endpoint-url "${{ inputs.endpoint }}" --only-show-errors 2>&1); then
             STATE=$(jq -r '.state' /tmp/status.json)
             [[ "$STATE" != "$LAST" ]] && { echo "  $STATE"; LAST="$STATE"; }
 
@@ -123,6 +127,9 @@ runs:
                 echo "::error::publish failed during $(jq -r '.phase' /tmp/status.json): $(jq -r '.detail' /tmp/status.json)"
                 exit 1 ;;
             esac
+          elif ! grep -qiE '\(404\)|NoSuchKey|Not Found|does not exist' <<<"$ERR"; then
+            echo "::error::cannot read the status object, and not because it is missing: ${ERR}"
+            exit 1
           fi
           sleep 5
         done

@@ -37,13 +37,25 @@ import org.gradle.kotlin.dsl.project
 
 private const val groupId = "io.getstream"
 
-// Where artifacts go. Selected by a Gradle property so CI flips it with -P (or
-// ORG_GRADLE_PROJECT_streamPublishTargets) without a code change.
+// Where artifacts go. Selected by ORG_GRADLE_PROJECT_streamPublishTargets so CI
+// chooses without a code change.
 //
-// The DEFAULT IS THE STREAM REPOSITORY. Central is a fallback a repo opts into,
-// not the baseline -- the point of this work is that we stop depending on it.
-// Nothing changes for a repo until it bumps its pinned conventions SHA, so the
-// bump is the cutover for that repo, deliberately and one at a time.
+// CI aims at the Stream repository: that is release.yml's default for the input,
+// and it passes the value explicitly on every run. But when NOTHING passes the
+// property, this falls back to `central`, because the two situations where that
+// happens both want the old behaviour:
+//
+//   A local build. `publishToMavenLocal` with no property would otherwise take
+//   the streamRepo path, and vanniktech makes signing REQUIRED for any non
+//   -SNAPSHOT version, so the usual `-Pversion=local-test` flow for trying an
+//   SDK inside a consumer app fails with "no configured signatory".
+//
+//   A repo that has the new plugin and the old workflow. SDK repos bump the
+//   release.yml pin and the plugin version from different Dependabot ecosystems
+//   (github-actions and gradle), so they land as separate PRs and that window is
+//   routine, not hypothetical. An old workflow passes no property; defaulting to
+//   streamRepo there would stage to disk with nothing to upload it, and tag and
+//   sync a release whose artifacts exist nowhere at all.
 //
 // Both targets at once is the dual-publish window: a single `./gradlew publish`
 // pushes to every declared repository, so one run produces a Central release and
@@ -93,14 +105,19 @@ internal fun Project.configurePublishingModule() {
                 publishToMavenCentral(automaticRelease = true)
             }
 
-            if (targetStreamRepo in targets) {
-                // Explicit, even though the plugin already signs whenever
-                // RELEASE_SIGNING_ENABLED is set: the Stream repository REJECTS an
-                // unsigned release run, so the requirement is stated where it is
-                // load-bearing rather than left to an environment variable a repo
-                // could forget to pass.
-                signAllPublications()
-            }
+            // NOTHING CALLS signAllPublications() HERE, DELIBERATELY.
+            //
+            // vanniktech's own plugin already calls it whenever
+            // RELEASE_SIGNING_ENABLED is set, and that call does
+            // `signing.set(true); signing.finalizeValue()`. A second call then
+            // fails with "The value for this property is final and cannot be
+            // changed any further" -- during plugin application, so it takes the
+            // whole build down, and in publish-release that happens AFTER the tag
+            // and the GitHub Release exist.
+            //
+            // Signing a release for the Stream repository is still required: it
+            // comes from RELEASE_SIGNING_ENABLED, which release.yml always sets,
+            // and the repository refuses an unsigned release run as the backstop.
 
             coordinates(groupId = groupId, artifactId = artifactId, version = version.toString())
 
@@ -125,7 +142,7 @@ internal fun Project.configurePublishingModule() {
  * afterwards.
  */
 private fun Project.publishTargets(): Set<String> {
-    val raw = providers.gradleProperty(publishTargetsProperty).getOrElse(targetStreamRepo)
+    val raw = providers.gradleProperty(publishTargetsProperty).getOrElse(targetCentral)
     val targets = raw.split(",").map(String::trim).filter(String::isNotEmpty).toSet()
 
     val known = setOf(targetCentral, targetStreamRepo)
