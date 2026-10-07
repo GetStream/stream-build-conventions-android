@@ -1,0 +1,14 @@
+name: API Docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  docs:
+    uses: ./.github/workflows/publish-api-docs.yml
+    permissions:
+      contents: write
+    secrets:
+      slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_ANDROID_CICD }}

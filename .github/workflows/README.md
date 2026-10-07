@@ -196,6 +196,32 @@ Both release types bump the version and run `./gradlew publish`. The key differe
 | GitHub release     | Created with tag               | Not created                 |
 | `SNAPSHOT` env var | `"false"`                      | `"true"`                    |
 
+## API Docs
+
+The release workflow does not build API docs. `publish-api-docs.yml` builds the
+Dokka HTML site and pushes it to `gh-pages`, off the release's critical path.
+Repos that publish API docs trigger it on push to `main`, which the release
+workflow fast-forwards after every `develop` release:
+
+```yaml
+name: Publish API Docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  docs:
+    uses: GetStream/stream-build-conventions-android/.github/workflows/publish-api-docs.yml@<sha>
+    permissions:
+      contents: write
+    secrets:
+      slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_ANDROID_CICD }}
+```
+
+Manual runs publish only from `main`. Failures post to the Slack webhook.
+
 ## Environment Variables
 
 The workflow sets these environment variables during the publish step:
