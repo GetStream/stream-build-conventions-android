@@ -17,6 +17,20 @@ configurations to ensure consistency across Stream's Android libraries and appli
 
 ## Usage
 
+### Plugin Repository
+
+The plugins are published to the [Stream Maven repository](https://browse.stream-io-repo.com/releases/stream-build-conventions-android). Add it to `pluginManagement` in your `settings.gradle.kts`:
+
+```kotlin
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+        maven("https://stream-io-repo.com")
+    }
+}
+```
+
 ### Root Project Setup
 
 Apply the root plugin in your root `build.gradle.kts`:
@@ -109,6 +123,7 @@ Published artifacts use:
 - **Group ID**: `io.getstream`
 - **Artifact ID**: Module name (or override via `moduleArtifactIdOverrides`)
 - **Version**: From `gradle.properties`
+- **Repository**: [stream-io-repo.com](https://browse.stream-io-repo.com/releases/stream-build-conventions-android)
 
 ## License
 
