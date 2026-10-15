@@ -84,6 +84,14 @@ Your project must have:
 | `snapshot`                | No       | `false`             | Whether this is a snapshot release              |
 | `version-properties-file` | No       | `gradle.properties` | Path to file containing version                 |
 | `publish-targets`         | No       | `streamRepo`        | Where to publish: `streamRepo`, `central`, or both |
+| `release-notes-card`      | No       | `true`              | Put a GitHub alert at the top of the release notes |
+| `release-notes-card-message` | No    | `''`                | Alert markdown, `{tag}` is replaced. Empty = the Stream repository setup card |
+| `release-notes-card-level` | No      | `IMPORTANT`         | `NOTE`, `TIP`, `IMPORTANT`, `WARNING` or `CAUTION` |
+
+The default card tells customers the release is on the Stream repository, not
+Maven Central, and shows the one line of setup they need. It is skipped when
+`central` is a target, and from **2027-01-01** it is skipped altogether, so it
+retires without touching every repo. A custom message is never skipped.
 
 ## Stages
 

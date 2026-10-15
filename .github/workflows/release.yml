@@ -31,6 +31,28 @@ on:
         required: false
         type: string
         default: 'streamRepo'
+      release-notes-card:
+        description: >-
+          Put a GitHub alert at the top of the release notes. With no message it
+          is the Stream repository setup card, which is skipped when central is a
+          target and from 2027-01-01. Turn it off for repos whose consumers do not
+          add the repository to dependencyResolutionManagement (e.g. a Gradle
+          plugin).
+        required: false
+        type: boolean
+        default: true
+      release-notes-card-message:
+        description: >-
+          Markdown for the alert. {tag} is replaced with the release tag. Empty
+          means the Stream repository setup card.
+        required: false
+        type: string
+        default: ''
+      release-notes-card-level:
+        description: 'GitHub alert level: NOTE, TIP, IMPORTANT, WARNING or CAUTION'
+        required: false
+        type: string
+        default: 'IMPORTANT'
     secrets:
       github-token:
         description: 'GitHub token with repo write permissions'
@@ -286,11 +308,77 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
 
+      # An optional GitHub alert at the top of the release, above the generated
+      # "What's Changed". Part of the body the release is created with, so the
+      # release announcement carries it too. With no message given it is the
+      # Stream repository setup card, which only makes sense when Central is not
+      # a target, so it is dropped there.
+      - name: Prepare release notes header
+        id: notes
+        env:
+          TAG: ${{ needs.build.outputs.release-tag }}
+          TARGETS: ${{ inputs.publish-targets }}
+          WITH_CARD: ${{ inputs.release-notes-card }}
+          MESSAGE: ${{ inputs.release-notes-card-message }}
+          LEVEL: ${{ inputs.release-notes-card-level }}
+          # The default card is a transition notice. From this date it is
+          # skipped, so it stops without editing every repo when the transition
+          # is over. A custom message is never skipped.
+          DEFAULT_CARD_UNTIL: '2027-01-01'
+        run: |
+          set -euo pipefail
+          HEADER="$RUNNER_TEMP/release-header.md"
+          : > "$HEADER"
+          [ "$WITH_CARD" = "true" ] || exit 0
+
+          LEVEL=$(tr '[:lower:]' '[:upper:]' <<<"$LEVEL")
+          case "$LEVEL" in
+            NOTE|TIP|IMPORTANT|WARNING|CAUTION) ;;
+            *) echo "::error::release-notes-card-level must be NOTE, TIP, IMPORTANT, WARNING or CAUTION, got '$LEVEL'"; exit 1 ;;
+          esac
+
+          if [ -z "$MESSAGE" ]; then
+            if [[ "$(date -u +%F)" > "$DEFAULT_CARD_UNTIL" || "$(date -u +%F)" == "$DEFAULT_CARD_UNTIL" ]]; then
+              echo "Default card skipped: it expired on $DEFAULT_CARD_UNTIL."
+              exit 0
+            fi
+            if [[ "$TARGETS" == *central* ]]; then
+              echo "Default card skipped: it says the release is not on Maven Central."
+              exit 0
+            fi
+            MESSAGE=$(cat <<'EOF'
+          **`{tag}` is published to the Stream Maven repository, not Maven Central.**
+
+          ```kotlin
+          // settings.gradle.kts
+          dependencyResolutionManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  maven("https://stream-io-repo.com")
+              }
+          }
+          ```
+          EOF
+            )
+          fi
+
+          # {tag} in the message is replaced with the release tag. A plain
+          # assignment, not sed, so the tag needs no escaping.
+          MESSAGE=${MESSAGE//'{tag}'/"$TAG"}
+          {
+            echo "> [!$LEVEL]"
+            sed -e 's/^/> /' -e 's/^> $/>/' <<<"$MESSAGE"
+            echo
+          } > "$HEADER"
+          cat "$HEADER"
+
       - name: Create GitHub Release
         id: release
         uses: ncipollo/release-action@v1.21.0
         with:
           generateReleaseNotes: true
+          bodyFile: ${{ runner.temp }}/release-header.md
           # A re-run of this job must not fail on the release it already made.
           skipIfReleaseExists: true
           token: ${{ secrets.github-token }}
@@ -431,6 +519,7 @@ jobs:
               handoff) echo "Hand the staged tree to the upload job" ;;
               download) echo "Download the staged tree" ;;
               git-config) echo "Configure git" ;;
+              notes) echo "Prepare release notes header" ;;
               release) echo "Create GitHub Release" ;;
               merge) echo "Merge release branch and push to source branch" ;;
               sync-main) echo "Sync main with source branch" ;;
