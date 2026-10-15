@@ -85,6 +85,30 @@ Your project must have:
 | `version-properties-file` | No       | `gradle.properties` | Path to file containing version                 |
 | `publish-targets`         | No       | `streamRepo`        | Where to publish: `streamRepo`, `central`, or both |
 
+## Stages
+
+A release runs as four jobs:
+
+```
+build ──► upload ──► post-release ──► notify
+```
+
+| Job            | Holds                     | Does                                                                     |
+|----------------|---------------------------|--------------------------------------------------------------------------|
+| `build`        | signing key, GitHub token | Bump, check the tag, push the release branch, `./gradlew publish`, hand off the staged tree |
+| `upload`       | R2 credential             | Upload the tree and wait until the Stream repository reports `PUBLISHED` |
+| `post-release` | GitHub token              | Tag and create the GitHub Release, label PRs, sync branches              |
+| `notify`       | Slack webhook             | One message with each stage's result and what to do about a failure    |
+
+Nothing is tagged and no GitHub Release exists until `post-release`, which waits
+for the upload when the Stream repository is the only target. When that is the
+only target, a run that fails before `post-release` published nothing: fix the
+cause and dispatch again, which overwrites the release branch the failed run
+left behind. With `central` among the targets, follow the advice in the Slack
+message: the release may already be on Central.
+
+`notify` reports every outcome of a release, and only failures of a snapshot.
+
 ## Secrets
 
 | Secret                   | Required | Description                                                                         |
@@ -193,7 +217,8 @@ Both release types bump the version and run `./gradlew publish`. The key differe
 |--------------------|--------------------------------|-----------------------------|
 | Version commit     | Pushed to ci-release           | Local only                  |
 | Branch updates     | main and develop synced        | No branches updated         |
-| GitHub release     | Created with tag               | Not created                 |
+| GitHub release     | Created with tag, after upload | Not created                 |
+| Slack              | Success and failure            | Failure only                |
 | `SNAPSHOT` env var | `"false"`                      | `"true"`                    |
 
 ## API Docs
