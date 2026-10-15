@@ -363,10 +363,12 @@ jobs:
             )
           fi
 
+          # {tag} in the message is replaced with the release tag. A plain
+          # assignment, not sed, so the tag needs no escaping.
+          MESSAGE=${MESSAGE//'{tag}'/"$TAG"}
           {
             echo "> [!$LEVEL]"
-            # {tag} in the message is replaced with the release tag.
-            sed -e "s|{tag}|$TAG|g" -e 's/^/> /' -e 's/^> $/>/' <<<"$MESSAGE"
+            sed -e 's/^/> /' -e 's/^> $/>/' <<<"$MESSAGE"
             echo
           } > "$HEADER"
           cat "$HEADER"
