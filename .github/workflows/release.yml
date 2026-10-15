@@ -291,6 +291,8 @@ jobs:
         uses: ncipollo/release-action@v1.21.0
         with:
           generateReleaseNotes: true
+          # A re-run of this job must not fail on the release it already made.
+          skipIfReleaseExists: true
           token: ${{ secrets.github-token }}
           tag: ${{ needs.build.outputs.release-tag }}
           commit: ${{ needs.build.outputs.release-branch }}
@@ -308,7 +310,6 @@ jobs:
           # Ensure the 'released' label exists
           gh label create "released" --color "1D76DB" --description "Included in a release" --force
 
-          git fetch origin "$RELEASE_BRANCH"
           RELEASE_HEAD="origin/$RELEASE_BRANCH"
 
           # Get previous tag
