@@ -127,7 +127,7 @@ where that happens:
   plugin version from different Dependabot ecosystems (`github-actions` and
   `gradle`), so they arrive as separate PRs and this window is routine. An old
   workflow passes no property; defaulting to `streamRepo` there would stage to
-  disk with nothing to upload it, and tag and sync a release whose artifacts
+  disk with nothing to upload it, and release and sync a version whose artifacts
   exist nowhere.
 
 | Value                  | Effect                                                              |
