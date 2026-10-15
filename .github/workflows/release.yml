@@ -464,6 +464,8 @@ jobs:
         uses: ncipollo/release-action@v1.21.0
         with:
           generateReleaseNotes: true
+          # A re-run of this job must not fail on the release it already made.
+          skipIfReleaseExists: true
           token: ${{ secrets.github-token }}
           tag: ${{ needs.publish-release.outputs.release-tag }}
           commit: ${{ needs.publish-release.outputs.release-branch }}
@@ -480,7 +482,6 @@ jobs:
 
           RELEASE_BRANCH="${{ needs.publish-release.outputs.release-branch }}"
           CURRENT_TAG="${{ needs.publish-release.outputs.release-tag }}"
-          git fetch origin "$RELEASE_BRANCH"
           RELEASE_HEAD="origin/$RELEASE_BRANCH"
 
           # Get previous tag
@@ -541,16 +542,16 @@ jobs:
           webhook-type: incoming-webhook
           errors: true
           payload: |
-            text: ":warning: Published ${{ needs.publish-release.outputs.release-tag }} but could not create the GitHub Release for ${{ github.repository }} <!subteam^S0117TSPFH7>"
+            text: ":warning: Published ${{ needs.publish-release.outputs.release-tag }} but the release did not finish for ${{ github.repository }} <!subteam^S0117TSPFH7>"
             blocks:
               - type: "section"
                 text:
                   type: "mrkdwn"
                   text: |-
-                    :warning: *Published `${{ needs.publish-release.outputs.release-tag }}` but could not create the GitHub Release* for `${{ github.repository }}` <!subteam^S0117TSPFH7>
-                    The artifacts are live; the tag, the GitHub Release and the branch sync are missing. Do not dispatch the release again. Suggested steps:
+                    :warning: *Published `${{ needs.publish-release.outputs.release-tag }}` but the release did not finish* for `${{ github.repository }}` <!subteam^S0117TSPFH7>
+                    The artifacts are live. Do not dispatch the release again. Suggested steps:
                     1. Check the failure in the <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|workflow run>
-                    2. Create the GitHub Release `${{ needs.publish-release.outputs.release-tag }}` on <${{ github.server_url }}/${{ github.repository }}/tree/${{ needs.publish-release.outputs.release-branch }}|`${{ needs.publish-release.outputs.release-branch }}`>, with generated notes
+                    2. If the GitHub Release `${{ needs.publish-release.outputs.release-tag }}` does not exist, create it on <${{ github.server_url }}/${{ github.repository }}/tree/${{ needs.publish-release.outputs.release-branch }}|`${{ needs.publish-release.outputs.release-branch }}`>, with generated notes
                     3. Merge `${{ needs.publish-release.outputs.release-branch }}` into `${{ github.ref_name }}` (and `main`, if applicable), then delete it
               - type: "context"
                 elements:
