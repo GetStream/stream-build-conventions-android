@@ -372,9 +372,10 @@ jobs:
           echo "failed-step=$(jq -r 'to_entries | map(select(.value.conclusion == "failure")) | first | .key // ""' <<<"$STEPS")" >> "$GITHUB_OUTPUT"
 
   notify:
-    # Always runs, so a failure anywhere is reported, including in post-release.
-    # Releases report every outcome; snapshots report failures only.
-    if: always()
+    # Runs after any outcome, so a failure anywhere is reported, including in
+    # post-release. Releases report every outcome; snapshots report failures
+    # only, so a successful snapshot does not start this job at all.
+    if: ${{ always() && (!inputs.snapshot || contains(needs.*.result, 'failure')) }}
     needs: [build, upload, post-release]
     name: Notify Slack
     runs-on: ubuntu-latest
@@ -489,14 +490,7 @@ jobs:
                 *)
                   advice="$redispatch" ;;
               esac
-            elif [[ "$UPLOAD_RESULT" == "failure" ]]; then
-              headline=":x: *Upload of \`$TAG\` to the Stream repository failed* for \`$REPO\` $mention"
-              if $central; then
-                advice="The release is live on Central, so the GitHub Release and the branch sync ran anyway. Only the Stream repository copy is missing; it gets this code with the next release."
-              else
-                advice="Nothing was tagged or released. Fix the cause and use *Re-run failed jobs* within 24 hours (the staged tree is kept for one day); the GitHub Release and the branch sync follow once the upload succeeds. After 24 hours, dispatch the release again."
-              fi
-            else
+            elif [[ "$POST_RESULT" == "failure" ]]; then
               case "$POST_STEP" in
                 merge)
                   headline=":warning: *Released \`$TAG\` but the branch sync failed* for \`$REPO\` $mention"
@@ -507,10 +501,25 @@ jobs:
                 delete-branch)
                   headline=":warning: *Released \`$TAG\` but could not delete the release branch* for \`$REPO\` $mention"
                   advice="Everything else is done. Delete \`$RELEASE_BRANCH\`." ;;
-                *)
+                release)
                   headline=":warning: *Published \`$TAG\` but could not create the GitHub Release* for \`$REPO\` $mention"
                   advice="The artifacts are live; nothing is tagged yet. Use *Re-run failed jobs*, which repeats only this stage. Do not dispatch the release again." ;;
+                *)
+                  headline=":warning: *Published \`$TAG\` but the release did not finish* for \`$REPO\` $mention"
+                  advice="The artifacts are live. Check whether the GitHub Release \`$TAG\` exists and whether \`$RELEASE_BRANCH\` was merged into \`$REF\`, then finish what is missing by hand. Do not dispatch the release again." ;;
               esac
+              # Only reachable with central as a target: otherwise post-release
+              # does not run after a failed upload.
+              if [[ "$UPLOAD_RESULT" == "failure" ]]; then
+                advice+=" The Stream repository upload failed too; only that copy is missing, and it gets this code with the next release."
+              fi
+            else
+              headline=":x: *Upload of \`$TAG\` to the Stream repository failed* for \`$REPO\` $mention"
+              if $central; then
+                advice="The release is live on Central, so the GitHub Release and the branch sync ran anyway. Only the Stream repository copy is missing; it gets this code with the next release."
+              else
+                advice="Nothing was tagged or released. Fix the cause and use *Re-run failed jobs* within 24 hours (the staged tree is kept for one day); the GitHub Release and the branch sync follow once the upload succeeds. Do not use *Re-run all jobs*: it rebuilds and re-signs the release from scratch. After 24 hours, dispatch the release again."
+              fi
             fi
             fallback="$(sed -e 's/\*//g' -e "s/ $mention//" <<<"$headline")"
           elif [[ -n "$cancelled" ]]; then
@@ -539,8 +548,11 @@ jobs:
           }' > "$RUNNER_TEMP/slack-payload.json"
           echo "send=true" >> "$GITHUB_OUTPUT"
 
+      # A Slack error must not turn a finished release red: that invites
+      # dispatching it again.
       - name: Post to Slack
         if: ${{ steps.compose.outputs.send == 'true' }}
+        continue-on-error: true
         uses: slackapi/slack-github-action@v4.0.0
         with:
           webhook: ${{ secrets.slack-webhook-url }}

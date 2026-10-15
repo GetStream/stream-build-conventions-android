@@ -101,11 +101,13 @@ build ──► upload ──► post-release ──► notify
 | `notify`       | Slack webhook             | One message with each stage's result and what to do about a failure    |
 
 Nothing is tagged and no GitHub Release exists until `post-release`, which waits
-for the upload when the Stream repository is the only target. A failed run
-before that point leaves nothing to clean up: fix the cause and dispatch again.
+for the upload when the Stream repository is the only target. When that is the
+only target, a run that fails before `post-release` published nothing: fix the
+cause and dispatch again, which overwrites the release branch the failed run
+left behind. With `central` among the targets, follow the advice in the Slack
+message: the release may already be on Central.
 
-`notify` always runs. Releases report every outcome; snapshots report failures
-only.
+`notify` reports every outcome of a release, and only failures of a snapshot.
 
 ## Secrets
 
