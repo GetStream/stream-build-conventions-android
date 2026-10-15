@@ -59,6 +59,9 @@ jobs:
       # that lists our repository has to actually reach it, instead of falling
       # back to Central and reporting green while exercising nothing.
       publish-targets: ${{ inputs.publish-targets }}
+      # The setup card shows dependencyResolutionManagement, but a Gradle plugin
+      # resolves through pluginManagement.
+      release-notes-card: false
     secrets:
       github-token: ${{ secrets.STREAM_PUBLIC_BOT_TOKEN }}
       maven-central-username: ${{ secrets.OSSRH_USERNAME }}
