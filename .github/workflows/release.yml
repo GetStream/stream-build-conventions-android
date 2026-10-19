@@ -440,12 +440,14 @@ jobs:
       - name: Sync main with source branch
         id: sync-main
         # We sync main only for develop releases, e.g. if we are releasing a hotfix
-        # from an old v6 branch in Chat, we don't want to sync main
+        # from an old v6 branch in Chat, we don't want to sync main.
+        # main moves to the release branch, not the source branch: the source branch
+        # may have moved on since the cut, and main must hold only what was released.
         if: ${{ github.ref_name == 'develop' }}
         run: |
-          git fetch origin main
+          git fetch origin main "${{ needs.build.outputs.release-branch }}"
           git checkout main
-          git merge --ff-only "${{ github.ref_name }}"
+          git merge --ff-only "origin/${{ needs.build.outputs.release-branch }}"
           git push origin main
 
       - name: Delete release branch
