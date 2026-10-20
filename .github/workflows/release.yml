@@ -437,7 +437,7 @@ jobs:
           echo "❌ Failed to push to $SOURCE_BRANCH after 3 attempts"
           exit 1
 
-      - name: Sync main with source branch
+      - name: Fast-forward main to the release branch
         id: sync-main
         # We sync main only for develop releases, e.g. if we are releasing a hotfix
         # from an old v6 branch in Chat, we don't want to sync main.
@@ -524,7 +524,7 @@ jobs:
               notes) echo "Prepare release notes header" ;;
               release) echo "Create GitHub Release" ;;
               merge) echo "Merge release branch and push to source branch" ;;
-              sync-main) echo "Sync main with source branch" ;;
+              sync-main) echo "Fast-forward main to the release branch" ;;
               delete-branch) echo "Delete release branch" ;;
               "") echo "unknown step" ;;
               *) echo "$1" ;;
@@ -551,7 +551,7 @@ jobs:
           done
 
           redispatch="Nothing was published and nothing was tagged. Fix the cause and dispatch the release again."
-          by_hand="do not dispatch again; finish the release by hand: create the GitHub Release \`$TAG\` on <$REPO_URL/tree/$RELEASE_BRANCH|\`$RELEASE_BRANCH\`>, merge that branch into \`$REF\` (and \`main\`, if applicable), then delete it."
+          by_hand="do not dispatch again; finish the release by hand: create the GitHub Release \`$TAG\` on <$REPO_URL/tree/$RELEASE_BRANCH|\`$RELEASE_BRANCH\`>, merge that branch into \`$REF\` (and fast-forward \`main\` to it, if applicable), then delete it."
 
           if [[ "$SNAPSHOT" == "true" ]]; then
             if [[ -z "$failed" ]]; then
@@ -586,10 +586,10 @@ jobs:
               case "$POST_STEP" in
                 merge)
                   headline=":warning: *Released \`$TAG\` but the branch sync failed* for \`$REPO\` $mention"
-                  advice="The artifacts are live and the GitHub Release exists. Merge <$REPO_URL/tree/$RELEASE_BRANCH|\`$RELEASE_BRANCH\`> into \`$REF\` (and \`main\`, if applicable), then delete it. Do not re-run: the release step would fail on the existing tag." ;;
+                  advice="The artifacts are live and the GitHub Release exists. Merge <$REPO_URL/tree/$RELEASE_BRANCH|\`$RELEASE_BRANCH\`> into \`$REF\` (and fast-forward \`main\` to it, if applicable), then delete it. Do not re-run: the release step would fail on the existing tag." ;;
                 sync-main)
                   headline=":warning: *Released \`$TAG\` but syncing \`main\` failed* for \`$REPO\` $mention"
-                  advice="The artifacts are live, the GitHub Release exists and \`$REF\` is merged. Fast-forward \`main\` to \`$REF\`, then delete \`$RELEASE_BRANCH\`. Do not re-run." ;;
+                  advice="The artifacts are live, the GitHub Release exists and \`$REF\` is merged. Fast-forward \`main\` to <$REPO_URL/tree/$RELEASE_BRANCH|\`$RELEASE_BRANCH\`>, then delete it. Do not re-run." ;;
                 delete-branch)
                   headline=":warning: *Released \`$TAG\` but could not delete the release branch* for \`$REPO\` $mention"
                   advice="Everything else is done. Delete \`$RELEASE_BRANCH\`." ;;
