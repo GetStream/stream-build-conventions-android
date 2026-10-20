@@ -69,6 +69,8 @@ private const val targetStreamRepo = "streamRepo"
 // one tree per module. Matches the composite action's default staged-directory.
 private const val stagingDirectory = "staged-repo"
 
+private const val snapshotTimestampProperty = "streamSnapshotTimestamp"
+
 internal fun Project.configurePublishingRoot() {
     pluginManager.apply("org.jetbrains.dokka")
 
@@ -182,13 +184,25 @@ private fun Project.getArtifactId(publishing: PublishingOptions): String =
 private fun Project.computeVersion(): String {
     val isSnapshot = System.getenv("SNAPSHOT")?.toBoolean() == true
     return if (isSnapshot) {
-        val timestamp =
-            DateTimeFormatter.ofPattern("yyyyMMddHHmm")
-                .withZone(ZoneOffset.UTC)
-                .format(Instant.now())
-
-        "$version-$timestamp-SNAPSHOT"
+        "$version-${snapshotTimestamp()}-SNAPSHOT"
     } else version.toString()
+}
+
+// One timestamp per build, kept on the root project. Modules configure one after another, so a
+// clock read per module gives a build that crosses a minute boundary two versions, and a POM can
+// then name a sibling at a version that was never published.
+private fun Project.snapshotTimestamp(): String {
+    val extra = rootProject.extensions.extraProperties
+    synchronized(extra) {
+        if (!extra.has(snapshotTimestampProperty)) {
+            val timestamp =
+                DateTimeFormatter.ofPattern("yyyyMMddHHmm")
+                    .withZone(ZoneOffset.UTC)
+                    .format(Instant.now())
+            extra.set(snapshotTimestampProperty, timestamp)
+        }
+        return extra.get(snapshotTimestampProperty) as String
+    }
 }
 
 // Discover the artifact platform based on the applied plugins
