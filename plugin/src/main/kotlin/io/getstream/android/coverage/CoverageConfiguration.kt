@@ -162,8 +162,8 @@ private inline fun <reified E : CommonExtension<*, *, *, *, *, *>> Project.confi
     extensions.configure<E> {
         buildTypes {
             getByName("debug") {
-                // Unit test coverage comes from Kover. AGP's unit test coverage adds a JaCoCo
-                // agent next to Kover's, which changes the bytecode Kover measures.
+                // Don't enable `enableUnitTestCoverage`: unit test coverage comes from Kover, and
+                // AGP's JaCoCo agent would change the bytecode Kover measures.
                 enableAndroidTestCoverage = true
             }
         }
