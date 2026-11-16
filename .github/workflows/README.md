@@ -96,17 +96,18 @@ retires without touching every repo. A custom message is never skipped.
 
 ## Stages
 
-A release runs as four jobs:
+A release runs as five jobs. A snapshot skips `prepare` and `post-release`.
 
 ```
-build ──► upload ──► post-release ──► notify
+prepare ──► build ──► upload ──► post-release ──► notify
 ```
 
 | Job            | Holds                     | Does                                                                     |
 |----------------|---------------------------|--------------------------------------------------------------------------|
-| `build`        | signing key, GitHub token | Bump, check the tag, push the release branch, `./gradlew publish`, hand off the staged tree |
+| `prepare`      | release bot App key       | Bump, check the tag, push the release branch                             |
+| `build`        | signing key               | Check out the release branch, `./gradlew publish`, hand off the staged tree |
 | `upload`       | R2 credential             | Upload the tree and wait until the Stream repository reports `PUBLISHED` |
-| `post-release` | GitHub token              | Tag and create the GitHub Release, label PRs, sync branches              |
+| `post-release` | release bot App key       | Tag and create the GitHub Release, label PRs, sync branches              |
 | `notify`       | Slack webhook             | One message with each stage's result and what to do about a failure    |
 
 Nothing is tagged and no GitHub Release exists until `post-release`, which waits
