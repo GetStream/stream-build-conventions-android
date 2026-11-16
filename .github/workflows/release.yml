@@ -100,6 +100,11 @@ on:
         description: 'R2 secret access key'
         required: false
 
+# Every GitHub write goes through a release bot App token, so GITHUB_TOKEN stays
+# read-only whatever the caller grants, and the build job cannot write with it.
+permissions:
+  contents: read
+
 jobs:
   # The release runs in five stages, each its own job:
   #
