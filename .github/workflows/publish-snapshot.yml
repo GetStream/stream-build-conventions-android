@@ -19,7 +19,6 @@ jobs:
       # See publish-new-version.yml: the Stream repository only, like an SDK.
       publish-targets: streamRepo
     secrets:
-      github-token: ${{ secrets.STREAM_PUBLIC_BOT_TOKEN }}
       maven-central-username: ${{ secrets.OSSRH_USERNAME }}
       maven-central-password: ${{ secrets.OSSRH_PASSWORD }}
       signing-key: ${{ secrets.SIGNING_KEY }}

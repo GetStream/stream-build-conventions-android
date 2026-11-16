@@ -50,8 +50,9 @@ jobs:
     with:
       bump: ${{ inputs.bump }}
       snapshot: ${{ inputs.snapshot }}
+      release-bot-client-id: ${{ vars.ANDROID_RELEASE_BOT_CLIENT_ID }}
     secrets:
-      github-token: ${{ secrets.STREAM_PUBLIC_BOT_TOKEN }}
+      release-bot-private-key: ${{ secrets.ANDROID_RELEASE_BOT_PRIVATE_KEY }}
       maven-central-username: ${{ secrets.MAVEN_USERNAME }}
       maven-central-password: ${{ secrets.MAVEN_PASSWORD }}
       signing-key: ${{ secrets.SIGNING_KEY }}
@@ -95,17 +96,18 @@ retires without touching every repo. A custom message is never skipped.
 
 ## Stages
 
-A release runs as four jobs:
+A release runs as five jobs. A snapshot skips `prepare` and `post-release`.
 
 ```
-build ──► upload ──► post-release ──► notify
+prepare ──► build ──► upload ──► post-release ──► notify
 ```
 
 | Job            | Holds                     | Does                                                                     |
 |----------------|---------------------------|--------------------------------------------------------------------------|
-| `build`        | signing key, GitHub token | Bump, check the tag, push the release branch, `./gradlew publish`, hand off the staged tree |
+| `prepare`      | release bot App key       | Bump, check the tag, push the release branch                             |
+| `build`        | signing key               | Check out the release branch, `./gradlew publish`, hand off the staged tree |
 | `upload`       | R2 credential             | Upload the tree and wait until the Stream repository reports `PUBLISHED` |
-| `post-release` | GitHub token              | Tag and create the GitHub Release, label PRs, sync branches              |
+| `post-release` | release bot App key       | Tag and create the GitHub Release, label PRs, sync branches              |
 | `notify`       | Slack webhook             | One message with each stage's result and what to do about a failure    |
 
 Nothing is tagged and no GitHub Release exists until `post-release`, which waits
@@ -119,14 +121,26 @@ message: the release may already be on Central.
 
 ## Secrets
 
-| Secret                   | Required | Description                                                                         |
-|--------------------------|----------|-------------------------------------------------------------------------------------|
-| `github-token`           | Yes      | GitHub token with repo with write permissions (i.e. able to push to main & develop) |
-| `maven-central-username` | Yes      | Maven Central username for publishing                                               |
-| `maven-central-password` | Yes      | Maven Central password for publishing                                               |
-| `signing-key`            | Yes      | GPG signing key for artifact signing                                                |
-| `signing-key-id`         | Yes      | GPG signing key ID                                                                  |
-| `signing-key-password`   | Yes      | GPG signing key password                                                            |
+A release pushes to the protected source branch and to `main`, and creates the
+GitHub Release, through a GitHub App: the jobs mint short-lived tokens from its
+private key. Pass the App's client ID as the `release-bot-client-id` input and its key as
+the `release-bot-private-key` secret. The App needs Contents, Workflows, Pull
+requests and Issues write on the repository, and must be allowed to bypass the
+protection on the source branch and `main`. Snapshots push nothing and need
+neither.
+
+The workflow no longer accepts a `github-token` secret. A caller that bumps its
+pin must drop `github-token` and pass the App in the same change, or every
+dispatch fails before it starts.
+
+| Secret                    | Required | Description                                                                         |
+|---------------------------|----------|-------------------------------------------------------------------------------------|
+| `release-bot-private-key` | Releases | Private key of the release bot GitHub App                                           |
+| `maven-central-username`  | Yes      | Maven Central username for publishing                                               |
+| `maven-central-password`  | Yes      | Maven Central password for publishing                                               |
+| `signing-key`             | Yes      | GPG signing key for artifact signing                                                |
+| `signing-key-id`          | Yes      | GPG signing key ID                                                                  |
+| `signing-key-password`    | Yes      | GPG signing key password                                                            |
 
 Four more are needed only when `publish-targets` includes `streamRepo`. They are
 an **R2 S3 credential scoped to the staging bucket**, not a Cloudflare API token,

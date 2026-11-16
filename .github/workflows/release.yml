@@ -53,10 +53,20 @@ on:
         required: false
         type: string
         default: 'IMPORTANT'
+      release-bot-client-id:
+        description: >-
+          Client ID of the GitHub App that pushes the release commits and creates the
+          GitHub Release. Not needed for snapshots, which push nothing.
+        required: false
+        type: string
+        default: ''
     secrets:
-      github-token:
-        description: 'GitHub token with repo write permissions'
-        required: true
+      release-bot-private-key:
+        description: >-
+          Private key of the release bot App. The jobs mint short-lived tokens
+          from it. The App must be allowed to bypass the protection on the
+          source branch and on main. Not needed for snapshots.
+        required: false
       maven-central-username:
         description: 'Maven Central username'
         required: true
@@ -90,24 +100,34 @@ on:
         description: 'R2 secret access key'
         required: false
 
+# Every GitHub write goes through a release bot App token, so GITHUB_TOKEN stays
+# read-only whatever the caller grants, and the build job cannot write with it.
+permissions:
+  contents: read
+
 jobs:
-  # The release runs in four stages, each its own job:
+  # The release runs in five stages, each its own job:
   #
-  #   build ──► upload ──► post-release ──► notify
+  #   prepare ──► build ──► upload ──► post-release ──► notify
   #
-  # Secrets are injected per job, so each stage holds only what it needs: build
-  # has the signing key and never the R2 credential, upload has the R2 credential
-  # and never the signing key, notify has only the webhook. Two secrets in one job
-  # is one blast radius, and that is exactly what signature verification on the
-  # other end is supposed to bound.
+  # Secrets are injected per job, so each stage holds only what it needs:
+  # prepare and post-release have the release bot App key and nothing else,
+  # build has the signing key and never the App key or the R2 credential, upload
+  # has the R2 credential and never the signing key, notify has only the webhook.
+  # Two secrets in one job is one blast radius, and that is exactly what
+  # signature verification on the other end is supposed to bound.
   #
   # Nothing is tagged and no GitHub Release exists until post-release, which runs
   # only once the artifacts are resolvable. Every stage records the id of the step
   # that failed, and notify turns that into one message with the exact failure
   # point and what to do about it.
 
-  build:
-    name: Build and stage
+  # Bumps the version and pushes it as the release branch, which build then
+  # checks out. Releases only: a snapshot bumps the version in build and pushes
+  # nothing.
+  prepare:
+    if: ${{ !inputs.snapshot }}
+    name: Cut the release branch
     runs-on: ubuntu-latest
     outputs:
       release-tag: ${{ steps.tag.outputs.name }}
@@ -115,17 +135,28 @@ jobs:
       failed-step: ${{ steps.record.outputs.failed-step }}
 
     steps:
+      # Workflows permission because the release branch is a new ref, and its
+      # workflow files can differ from the default branch's (e.g. chat's v6).
+      - name: Create release bot token
+        id: app-token
+        uses: actions/create-github-app-token@v3.3.0
+        with:
+          client-id: ${{ inputs.release-bot-client-id }}
+          private-key: ${{ secrets.release-bot-private-key }}
+          permission-contents: write
+          permission-workflows: write
+
       - name: Checkout
         id: checkout
         uses: actions/checkout@v7
         with:
-          token: ${{ secrets.github-token }}
+          token: ${{ steps.app-token.outputs.token }}
           fetch-depth: 0
 
       - name: Verify main is merged into develop
         id: verify-main
         # We don't care about this for non-develop branches (e.g. an old v6 branch in chat)
-        if: ${{ !inputs.snapshot && github.ref_name == 'develop' }}
+        if: ${{ github.ref_name == 'develop' }}
         run: |
           git fetch origin main
 
@@ -155,12 +186,10 @@ jobs:
 
       - name: Compute release tag
         id: tag
-        if: ${{ !inputs.snapshot }}
         run: echo "name=v${{ steps.bump.outputs.new-version }}" >> "$GITHUB_OUTPUT"
 
       - name: Check tag doesn't already exist
         id: tag-check
-        if: ${{ !inputs.snapshot }}
         run: |
           TAG="${{ steps.tag.outputs.name }}"
           if git ls-remote --tags origin "refs/tags/$TAG" | grep -q .; then
@@ -171,12 +200,10 @@ jobs:
 
       - name: Compute release branch
         id: release-branch
-        if: ${{ !inputs.snapshot }}
         run: echo "name=release-${{ github.ref_name }}-${{ steps.tag.outputs.name }}" >> "$GITHUB_OUTPUT"
 
       - name: Commit version file
         id: commit
-        if: ${{ !inputs.snapshot }}
         uses: EndBug/add-and-commit@v11.1.1
         with:
           add: ${{ inputs.version-properties-file }}
@@ -188,8 +215,44 @@ jobs:
       # overwrites the branch the failed run left behind.
       - name: Push to release branch
         id: push-branch
-        if: ${{ !inputs.snapshot }}
         run: git push origin "HEAD:${{ steps.release-branch.outputs.name }}" --force
+
+      - name: Record the failed step
+        id: record
+        if: always()
+        env:
+          STEPS: ${{ toJSON(steps) }}
+        run: |
+          echo "failed-step=$(jq -r 'to_entries | map(select(.value.conclusion == "failure")) | first | .key // ""' <<<"$STEPS")" >> "$GITHUB_OUTPUT"
+
+  build:
+    # A snapshot has no prepare job, so prepare's result is checked by hand.
+    if: ${{ !cancelled() && (inputs.snapshot || needs.prepare.result == 'success') }}
+    needs: prepare
+    name: Build and stage
+    runs-on: ubuntu-latest
+    outputs:
+      failed-step: ${{ steps.record.outputs.failed-step }}
+
+    steps:
+      # A release builds the release branch prepare pushed, so the bumped version
+      # comes with it. A snapshot builds the dispatched ref.
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.release-branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bump version
+        id: bump
+        if: ${{ inputs.snapshot }}
+        uses: GetStream/stream-build-conventions-android/.github/actions/bump-version@main
+        with:
+          bump: ${{ inputs.bump }}
+          file: ${{ inputs.version-properties-file }}
+          suffix: ${{ inputs.suffix }}
 
       - name: Setup Gradle
         id: setup-gradle
@@ -238,7 +301,9 @@ jobs:
           echo "failed-step=$(jq -r 'to_entries | map(select(.value.conclusion == "failure")) | first | .key // ""' <<<"$STEPS")" >> "$GITHUB_OUTPUT"
 
   upload:
-    if: ${{ contains(inputs.publish-targets, 'streamRepo') }}
+    # Checked by hand: a snapshot skips prepare, and a skipped job further up
+    # would skip this one under the default condition.
+    if: ${{ !cancelled() && needs.build.result == 'success' && contains(inputs.publish-targets, 'streamRepo') }}
     needs: build
     name: Upload to the Stream repository
     runs-on: ubuntu-latest
@@ -283,24 +348,41 @@ jobs:
     if: >-
       ${{ always()
           && !inputs.snapshot
+          && needs.prepare.result == 'success'
           && needs.build.result == 'success'
           && (needs.upload.result == 'success'
               || needs.upload.result == 'skipped'
               || contains(inputs.publish-targets, 'central')) }}
-    needs: [build, upload]
+    needs: [prepare, build, upload]
     name: Create GitHub Release and sync branches
     runs-on: ubuntu-latest
     outputs:
       failed-step: ${{ steps.record.outputs.failed-step }}
 
     steps:
+      # Pushes to the protected source branch and main, so the App must be on
+      # their bypass list. Workflows permission because fast-forwarding main can
+      # push commits that change .github/workflows. The Release must not be
+      # created with GITHUB_TOKEN, or the caller's release-triggered workflows
+      # would not run.
+      - name: Create release bot token
+        id: app-token
+        uses: actions/create-github-app-token@v3.3.0
+        with:
+          client-id: ${{ inputs.release-bot-client-id }}
+          private-key: ${{ secrets.release-bot-private-key }}
+          permission-contents: write
+          permission-workflows: write
+          permission-pull-requests: write
+          permission-issues: write
+
       - name: Check out source branch
         id: checkout
         uses: actions/checkout@v7
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
-          token: ${{ secrets.github-token }}
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure git
         id: git-config
@@ -316,7 +398,7 @@ jobs:
       - name: Prepare release notes header
         id: notes
         env:
-          TAG: ${{ needs.build.outputs.release-tag }}
+          TAG: ${{ needs.prepare.outputs.release-tag }}
           TARGETS: ${{ inputs.publish-targets }}
           WITH_CARD: ${{ inputs.release-notes-card }}
           MESSAGE: ${{ inputs.release-notes-card-message }}
@@ -381,9 +463,9 @@ jobs:
           bodyFile: ${{ runner.temp }}/release-header.md
           # A re-run of this job must not fail on the release it already made.
           skipIfReleaseExists: true
-          token: ${{ secrets.github-token }}
-          tag: ${{ needs.build.outputs.release-tag }}
-          commit: ${{ needs.build.outputs.release-branch }}
+          token: ${{ steps.app-token.outputs.token }}
+          tag: ${{ needs.prepare.outputs.release-tag }}
+          commit: ${{ needs.prepare.outputs.release-branch }}
           makeLatest: ${{ inputs.suffix == '' && github.ref_name == 'develop' }}
           prerelease: ${{ inputs.suffix != '' }}
 
@@ -391,9 +473,9 @@ jobs:
         id: label
         continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.github-token }}
-          RELEASE_BRANCH: ${{ needs.build.outputs.release-branch }}
-          CURRENT_TAG: ${{ needs.build.outputs.release-tag }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          RELEASE_BRANCH: ${{ needs.prepare.outputs.release-branch }}
+          CURRENT_TAG: ${{ needs.prepare.outputs.release-tag }}
         run: |
           # Ensure the 'released' label exists
           gh label create "released" --color "1D76DB" --description "Included in a release" --force
@@ -422,7 +504,7 @@ jobs:
       - name: Merge release branch and push to source branch
         id: merge
         run: |
-          RELEASE_BRANCH="${{ needs.build.outputs.release-branch }}"
+          RELEASE_BRANCH="${{ needs.prepare.outputs.release-branch }}"
           SOURCE_BRANCH="${{ github.ref_name }}"
           for attempt in 1 2 3; do
             git fetch origin "$RELEASE_BRANCH" "$SOURCE_BRANCH"
@@ -445,14 +527,14 @@ jobs:
         # may have moved on since the cut, and main must hold only what was released.
         if: ${{ github.ref_name == 'develop' }}
         run: |
-          git fetch origin main "${{ needs.build.outputs.release-branch }}"
+          git fetch origin main "${{ needs.prepare.outputs.release-branch }}"
           git checkout main
-          git merge --ff-only "origin/${{ needs.build.outputs.release-branch }}"
+          git merge --ff-only "origin/${{ needs.prepare.outputs.release-branch }}"
           git push origin main
 
       - name: Delete release branch
         id: delete-branch
-        run: git push origin --delete ${{ needs.build.outputs.release-branch }}
+        run: git push origin --delete ${{ needs.prepare.outputs.release-branch }}
 
       - name: Record the failed step
         id: record
@@ -467,7 +549,7 @@ jobs:
     # post-release. Releases report every outcome; snapshots report failures
     # only, so a successful snapshot does not start this job at all.
     if: ${{ always() && (!inputs.snapshot || contains(needs.*.result, 'failure')) }}
-    needs: [build, upload, post-release]
+    needs: [prepare, build, upload, post-release]
     name: Notify Slack
     runs-on: ubuntu-latest
 
@@ -477,8 +559,10 @@ jobs:
         env:
           SNAPSHOT: ${{ inputs.snapshot }}
           TARGETS: ${{ inputs.publish-targets }}
-          TAG: ${{ needs.build.outputs.release-tag }}
-          RELEASE_BRANCH: ${{ needs.build.outputs.release-branch }}
+          TAG: ${{ needs.prepare.outputs.release-tag }}
+          RELEASE_BRANCH: ${{ needs.prepare.outputs.release-branch }}
+          PREPARE_RESULT: ${{ needs.prepare.result }}
+          PREPARE_STEP: ${{ needs.prepare.outputs.failed-step }}
           BUILD_RESULT: ${{ needs.build.result }}
           BUILD_STEP: ${{ needs.build.outputs.failed-step }}
           UPLOAD_RESULT: ${{ needs.upload.result }}
@@ -508,6 +592,7 @@ jobs:
           # someone will look for in the run.
           step_name() {
             case "$1" in
+              app-token) echo "Create release bot token" ;;
               checkout) echo "Checkout" ;;
               verify-main) echo "Verify main is merged into develop" ;;
               bump) echo "Bump version" ;;
@@ -537,16 +622,18 @@ jobs:
             echo "$line"
           }
 
-          stages="$(stage Build "$BUILD_RESULT" "$BUILD_STEP" "Build and publish")"
+          stages=""
+          [[ "$SNAPSHOT" != "true" ]] && stages="$(stage Prepare "$PREPARE_RESULT" "$PREPARE_STEP") · "
+          stages+="$(stage Build "$BUILD_RESULT" "$BUILD_STEP" "Build and publish")"
           [[ "$TARGETS" == *streamRepo* ]] && stages+=" · $(stage Upload "$UPLOAD_RESULT" "$UPLOAD_STEP" "Publish to the Stream repository")"
           [[ "$SNAPSHOT" != "true" ]] && stages+=" · $(stage Release "$POST_RESULT" "$POST_STEP")"
 
           failed=""
-          for r in "$BUILD_RESULT" "$UPLOAD_RESULT" "$POST_RESULT"; do
+          for r in "$PREPARE_RESULT" "$BUILD_RESULT" "$UPLOAD_RESULT" "$POST_RESULT"; do
             [[ "$r" == "failure" ]] && failed=true
           done
           cancelled=""
-          for r in "$BUILD_RESULT" "$UPLOAD_RESULT" "$POST_RESULT"; do
+          for r in "$PREPARE_RESULT" "$BUILD_RESULT" "$UPLOAD_RESULT" "$POST_RESULT"; do
             [[ "$r" == "cancelled" ]] && cancelled=true
           done
 
@@ -562,11 +649,19 @@ jobs:
             fallback=":x: Snapshot publish failed for $REPO"
             advice=""
           elif [[ -n "$failed" ]]; then
-            if [[ "$BUILD_RESULT" == "failure" ]]; then
-              headline=":x: *Release failed while building* for \`$REPO\` $mention"
-              case "$BUILD_STEP" in
+            if [[ "$PREPARE_RESULT" == "failure" ]]; then
+              headline=":x: *Release failed before building* for \`$REPO\` $mention"
+              case "$PREPARE_STEP" in
                 tag-check)
                   advice="\`$TAG\` already exists, so this version was released before. STOP and investigate before dispatching again." ;;
+                app-token)
+                  advice="Check the release bot App (client ID, private key, installation on this repo), then dispatch the release again. Nothing was published or tagged." ;;
+                *)
+                  advice="$redispatch" ;;
+              esac
+            elif [[ "$BUILD_RESULT" == "failure" ]]; then
+              headline=":x: *Release failed while building* for \`$REPO\` $mention"
+              case "$BUILD_STEP" in
                 publish)
                   if $central; then
                     advice="Publishing may have reached Central: check on Sonatype. If it did not, fix the cause and dispatch the release again. If it did: $by_hand"
@@ -584,6 +679,9 @@ jobs:
               esac
             elif [[ "$POST_RESULT" == "failure" ]]; then
               case "$POST_STEP" in
+                app-token)
+                  headline=":warning: *Published \`$TAG\` but could not create the release bot token* for \`$REPO\` $mention"
+                  advice="The artifacts are live; nothing is tagged yet. Check the release bot App (ID, private key, installation on this repo), then use *Re-run failed jobs*, which repeats only this stage. Do not dispatch the release again." ;;
                 merge)
                   headline=":warning: *Released \`$TAG\` but the branch sync failed* for \`$REPO\` $mention"
                   advice="The artifacts are live and the GitHub Release exists. Merge <$REPO_URL/tree/$RELEASE_BRANCH|\`$RELEASE_BRANCH\`> into \`$REF\` (and fast-forward \`main\` to it, if applicable), then delete it. Do not re-run: the release step would fail on the existing tag." ;;
