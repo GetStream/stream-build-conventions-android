@@ -62,7 +62,7 @@ jobs:
       # The setup card shows dependencyResolutionManagement, but a Gradle plugin
       # resolves through pluginManagement.
       release-notes-card: false
-      release-bot-app-id: ${{ vars.ANDROID_RELEASE_BOT_APP_ID }}
+      release-bot-client-id: ${{ vars.ANDROID_RELEASE_BOT_CLIENT_ID }}
     secrets:
       release-bot-private-key: ${{ secrets.ANDROID_RELEASE_BOT_PRIVATE_KEY }}
       maven-central-username: ${{ secrets.OSSRH_USERNAME }}

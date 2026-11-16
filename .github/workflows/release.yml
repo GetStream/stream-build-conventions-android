@@ -53,9 +53,9 @@ on:
         required: false
         type: string
         default: 'IMPORTANT'
-      release-bot-app-id:
+      release-bot-client-id:
         description: >-
-          ID of the GitHub App that pushes the release commits and creates the
+          Client ID of the GitHub App that pushes the release commits and creates the
           GitHub Release. Not needed for snapshots, which push nothing.
         required: false
         type: string
@@ -130,9 +130,9 @@ jobs:
       - name: Create release bot token
         id: app-token
         if: ${{ !inputs.snapshot }}
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3.3.0
         with:
-          app-id: ${{ inputs.release-bot-app-id }}
+          client-id: ${{ inputs.release-bot-client-id }}
           private-key: ${{ secrets.release-bot-private-key }}
           permission-contents: write
           # Revoked right after the push below, before Gradle runs.
@@ -339,9 +339,9 @@ jobs:
       # would not run.
       - name: Create release bot token
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3.3.0
         with:
-          app-id: ${{ inputs.release-bot-app-id }}
+          client-id: ${{ inputs.release-bot-client-id }}
           private-key: ${{ secrets.release-bot-private-key }}
           permission-contents: write
           permission-workflows: write

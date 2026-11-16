@@ -50,7 +50,7 @@ jobs:
     with:
       bump: ${{ inputs.bump }}
       snapshot: ${{ inputs.snapshot }}
-      release-bot-app-id: ${{ vars.ANDROID_RELEASE_BOT_APP_ID }}
+      release-bot-client-id: ${{ vars.ANDROID_RELEASE_BOT_CLIENT_ID }}
     secrets:
       release-bot-private-key: ${{ secrets.ANDROID_RELEASE_BOT_PRIVATE_KEY }}
       maven-central-username: ${{ secrets.MAVEN_USERNAME }}
@@ -122,7 +122,7 @@ message: the release may already be on Central.
 
 A release pushes to the protected source branch and to `main`, and creates the
 GitHub Release, through a GitHub App: the jobs mint short-lived tokens from its
-private key. Pass the App's ID as the `release-bot-app-id` input and its key as
+private key. Pass the App's client ID as the `release-bot-client-id` input and its key as
 the `release-bot-private-key` secret. The App needs Contents, Workflows, Pull
 requests and Issues write on the repository, and must be allowed to bypass the
 protection on the source branch and `main`. Snapshots push nothing and need

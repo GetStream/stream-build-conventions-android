@@ -10,13 +10,13 @@ on:
       modules:
         required: true
         type: string
-      release-bot-app-id:
-        description: 'ID of the GitHub App that pushes the size commit to the branch'
+      release-bot-client-id:
+        description: 'Client ID of the GitHub App that pushes the size commit to the branch'
         required: true
         type: string
 
     secrets:
-      RELEASE_BOT_PRIVATE_KEY:
+      release-bot-private-key:
         description: 'Private key of the release bot App. It must be allowed to bypass the branch protection.'
         required: true
       BUILD_CACHE_AWS_REGION:
@@ -101,10 +101,10 @@ jobs:
       # Minted after the build, so the token never exists while Gradle runs.
       - name: Create release bot token
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3.3.0
         with:
-          app-id: ${{ inputs.release-bot-app-id }}
-          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          client-id: ${{ inputs.release-bot-client-id }}
+          private-key: ${{ secrets.release-bot-private-key }}
           permission-contents: write
 
       - name: Commit changes
