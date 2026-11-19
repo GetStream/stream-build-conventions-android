@@ -28,7 +28,7 @@ jobs:
           MIN_WORDS=5
           MAX_WORDS=18
           TITLE_BYPASS_LABEL="pr:ignore-for-release"
-          BOT_AUTHORS=("dependabot[bot]" "Stream-SDK-Bot" "renovate[bot]")
+          BOT_AUTHORS=("dependabot[bot]" "Stream-SDK-Bot" "renovate[bot]" "stream-android-release-bot[bot]")
 
           has_label () {
             case ",${LABELS_CSV}," in
