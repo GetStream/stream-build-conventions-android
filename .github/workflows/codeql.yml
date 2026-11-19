@@ -1,0 +1,58 @@
+name: CodeQL
+
+on:
+  pull_request:
+    branches: [ develop ]
+  push:
+    branches: [ develop ]
+  schedule:
+    - cron: '0 6 * * 6'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          # Autobuild runs Gradle on the newest JDK it supports (25 on ubuntu-26.04), and
+          # Gradle's embedded Kotlin compiler fails on it. So we build ourselves with JDK 17.
+          - language: java-kotlin
+            build-mode: manual
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Gradle
+        if: matrix.build-mode == 'manual'
+        uses: ./.github/actions/setup-gradle
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      # CodeQL only extracts code that the compiler runs on. Setup Gradle can restore
+      # another job's build cache, so compileKotlin must not come from it.
+      - name: Build
+        if: matrix.build-mode == 'manual'
+        run: ./gradlew --no-daemon --no-build-cache :plugin:compileKotlin
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}
