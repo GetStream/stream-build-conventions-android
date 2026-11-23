@@ -139,7 +139,7 @@ jobs:
       # workflow files can differ from the default branch's (e.g. chat's v6).
       - name: Create release bot token
         id: app-token
-        uses: actions/create-github-app-token@v3.3.0
+        uses: actions/create-github-app-token@v3.4.0
         with:
           client-id: ${{ inputs.release-bot-client-id }}
           private-key: ${{ secrets.release-bot-private-key }}
@@ -367,7 +367,7 @@ jobs:
       # would not run.
       - name: Create release bot token
         id: app-token
-        uses: actions/create-github-app-token@v3.3.0
+        uses: actions/create-github-app-token@v3.4.0
         with:
           client-id: ${{ inputs.release-bot-client-id }}
           private-key: ${{ secrets.release-bot-private-key }}
