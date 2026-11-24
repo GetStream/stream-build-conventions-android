@@ -130,7 +130,7 @@ jobs:
     name: Cut the release branch
     # Calls the GitHub API, and the org IP allow list only admits static-IP runners.
     runs-on:
-      group: github-public-ubuntu-static
+      group: github-public-amd64
     outputs:
       release-tag: ${{ steps.tag.outputs.name }}
       release-branch: ${{ steps.release-branch.outputs.name }}
@@ -232,7 +232,7 @@ jobs:
     if: ${{ !cancelled() && (inputs.snapshot || needs.prepare.result == 'success') }}
     needs: prepare
     name: Build and stage
-    runs-on: ubuntu-latest
+    runs-on: { group: github-public-amd64 }
     outputs:
       failed-step: ${{ steps.record.outputs.failed-step }}
 
@@ -306,7 +306,7 @@ jobs:
     if: ${{ !cancelled() && needs.build.result == 'success' && contains(inputs.publish-targets, 'streamRepo') }}
     needs: build
     name: Upload to the Stream repository
-    runs-on: ubuntu-latest
+    runs-on: { group: github-public-amd64 }
     outputs:
       failed-step: ${{ steps.record.outputs.failed-step }}
 
@@ -357,7 +357,7 @@ jobs:
     name: Create GitHub Release and sync branches
     # Calls the GitHub API, and the org IP allow list only admits static-IP runners.
     runs-on:
-      group: github-public-ubuntu-static
+      group: github-public-amd64
     outputs:
       failed-step: ${{ steps.record.outputs.failed-step }}
 
@@ -553,7 +553,7 @@ jobs:
     if: ${{ always() && (!inputs.snapshot || contains(needs.*.result, 'failure')) }}
     needs: [prepare, build, upload, post-release]
     name: Notify Slack
-    runs-on: ubuntu-latest
+    runs-on: { group: github-public-amd64 }
 
     steps:
       - name: Compose the message
