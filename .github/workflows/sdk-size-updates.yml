@@ -38,7 +38,9 @@ env:
 jobs:
   update-sdk-sizes:
     name: Update SDK sizes
-    runs-on: ubuntu-latest
+    # Calls the GitHub API, and the org IP allow list only admits static-IP runners.
+    runs-on:
+      group: github-public-ubuntu-static
 
     steps:
       - name: Checkout code

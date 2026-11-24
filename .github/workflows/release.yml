@@ -128,7 +128,9 @@ jobs:
   prepare:
     if: ${{ !inputs.snapshot }}
     name: Cut the release branch
-    runs-on: ubuntu-latest
+    # Calls the GitHub API, and the org IP allow list only admits static-IP runners.
+    runs-on:
+      group: github-public-ubuntu-static
     outputs:
       release-tag: ${{ steps.tag.outputs.name }}
       release-branch: ${{ steps.release-branch.outputs.name }}
@@ -353,7 +355,9 @@ jobs:
               || contains(inputs.publish-targets, 'central')) }}
     needs: [prepare, build, upload]
     name: Create GitHub Release and sync branches
-    runs-on: ubuntu-latest
+    # Calls the GitHub API, and the org IP allow list only admits static-IP runners.
+    runs-on:
+      group: github-public-ubuntu-static
     outputs:
       failed-step: ${{ steps.record.outputs.failed-step }}
 

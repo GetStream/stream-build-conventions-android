@@ -38,6 +38,9 @@ jobs:
   compare-sdk-sizes:
     name: Compare SDK sizes
     runs-on: ubuntu-latest
+    outputs:
+      current-sdk-sizes: ${{ steps.current.outputs.sizes }}
+      pr-sdk-sizes: ${{ steps.pr.outputs.sizes }}
 
     steps:
       - name: Checkout code
@@ -54,19 +57,20 @@ jobs:
           BUILD_CACHE_AWS_SECRET_KEY: ${{ secrets.BUILD_CACHE_AWS_SECRET_KEY }}
 
       - name: Get current SDK sizes
+        id: current
         run: |
           # Reads current SDK sizes from the metrics file
           # and define to a variable using a compact JSON format
-          # so it can be exported for the next job step
-          CURRENT_SDK_SIZES=$(jq -c .release "$METRICS_FILE")
-          echo "CURRENT_SDK_SIZES=$CURRENT_SDK_SIZES" >> "$GITHUB_ENV"
+          # so it can be exported to the comment job
+          echo "sizes=$(jq -c .release "$METRICS_FILE")" >> "$GITHUB_OUTPUT"
 
       - name: Calculate PR branch SDK sizes
+        id: pr
         run: |
           echo '{}' > pr_sdk_sizes.json
 
           # Calculate sizes from the .apk files and save them into a temporary JSON file
-          # so it can be exported for the next job step
+          # so it can be exported to the comment job
           for module in $MODULES; do
             baselineFile="metrics/$METRICS_PROJECT/build/outputs/apk/$module-baseline/release/$METRICS_PROJECT-$module-baseline-release.apk"
             streamFile="metrics/$METRICS_PROJECT/build/outputs/apk/$module-stream/release/$METRICS_PROJECT-$module-stream-release.apk"
@@ -78,10 +82,22 @@ jobs:
             jq -c --arg sdk "$module" --arg size "$size" '. + {($sdk): ($size | tonumber)}' pr_sdk_sizes.json > temp.json && mv temp.json pr_sdk_sizes.json
           done
 
-          echo "PR_SDK_SIZES=$(cat pr_sdk_sizes.json)" >> "$GITHUB_ENV"
+          echo "sizes=$(cat pr_sdk_sizes.json)" >> "$GITHUB_OUTPUT"
 
+  # Calls the GitHub API, and the org IP allow list only admits static-IP runners.
+  # A job of its own so the pull request's code never runs on that runner.
+  comment:
+    name: Post SDK size comparison
+    needs: compare-sdk-sizes
+    runs-on:
+      group: github-public-ubuntu-static
+
+    steps:
       - name: Post a comment or print size comparison
         uses: actions/github-script@v9
+        env:
+          CURRENT_SDK_SIZES: ${{ needs.compare-sdk-sizes.outputs.current-sdk-sizes }}
+          PR_SDK_SIZES: ${{ needs.compare-sdk-sizes.outputs.pr-sdk-sizes }}
         with:
           script: |
             const maxTolerance = process.env.MAX_TOLERANCE;
