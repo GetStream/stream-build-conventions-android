@@ -28,7 +28,9 @@ jobs:
     # A manual run from any other branch would replace the live docs with
     # unreleased APIs. Called runs see the caller's event and ref.
     if: ${{ github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
+    # Pushes to gh-pages, and the org IP allow list only admits static-IP runners.
+    runs-on:
+      group: github-public-ubuntu-static
     permissions:
       contents: write
     steps:
