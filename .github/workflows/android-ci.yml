@@ -8,6 +8,11 @@ on:
         required: false
         type: boolean
         default: true
+      save-gradle-cache:
+        description: 'Whether pushes to the default branch save the Gradle cache. Call gradle-cache-cleanup.yml after this workflow when enabled.'
+        required: false
+        type: boolean
+        default: false
 
     secrets:
       BUILD_CACHE_AWS_REGION:
@@ -34,6 +39,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
+        with:
+          cache-read-only: ${{ !inputs.save-gradle-cache || github.event_name != 'push' || github.ref_name != github.event.repository.default_branch }}
       - name: Build
         run: ./gradlew assembleDebug --scan
 
@@ -43,6 +50,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
+        with:
+          cache-read-only: ${{ !inputs.save-gradle-cache || github.event_name != 'push' || github.ref_name != github.event.repository.default_branch }}
       - name: Spotless
         run: ./gradlew spotlessCheck
       - name: Lint
@@ -60,6 +69,8 @@ jobs:
         with:
           fetch-depth: 0 # For Sonar analysis
       - uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
+        with:
+          cache-read-only: ${{ !inputs.save-gradle-cache || github.event_name != 'push' || github.ref_name != github.event.repository.default_branch }}
       - name: Run unit tests
         run: ./gradlew :testCoverage --scan --stacktrace
       - name: Upload tests results

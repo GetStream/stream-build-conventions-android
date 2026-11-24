@@ -1,0 +1,29 @@
+name: Gradle cache cleanup
+
+# Keeps only the newest Gradle User Home entry per job, so saves from every push don't fill the
+# repo's Actions cache and push out other entries. Call it after the jobs that save, from a caller
+# job granted `actions: write`.
+on:
+  workflow_call:
+
+jobs:
+  remove-older-gradle-caches:
+    name: Remove older Gradle caches
+    # Calls the GitHub API, and the org IP allow list only admits static-IP runners.
+    runs-on: { group: github-public-amd64 }
+    steps:
+      # setup-gradle keys end in "-<commit sha>". Within each job's key, deletes only entries created
+      # before this commit's, so a failed save keeps the old entry and a late run never removes a newer one.
+      - name: Remove older Gradle caches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # shellcheck disable=SC2016 # $new is a jq variable, not a shell one
+          gh cache list -R "$GITHUB_REPOSITORY" --ref "$GITHUB_REF" --key 'gradle-home-v1|' --limit 100 \
+            --json id,key,createdAt \
+            --jq '[.[] | . + {job: (.key | sub("-[0-9a-f]{40}$"; ""))}]
+              | group_by(.job)[]
+              | (map(select(.key | endswith("-" + env.GITHUB_SHA))) | first) as $new
+              | select($new != null)
+              | .[] | select(.createdAt < $new.createdAt) | .id' \
+            | xargs -r -n1 gh cache delete -R "$GITHUB_REPOSITORY"
