@@ -97,3 +97,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: raven-actions/actionlint@v2.2.0
+        with:
+          # The tool cache is saved only from pushes to the default branch, like the Gradle cache.
+          cache: ${{ github.event_name == 'push' && github.ref_name == github.event.repository.default_branch }}

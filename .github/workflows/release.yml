@@ -257,8 +257,6 @@ jobs:
       - name: Setup Gradle
         id: setup-gradle
         uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
-        with:
-          cache-read-only: false
 
       - name: Build and publish
         id: publish
