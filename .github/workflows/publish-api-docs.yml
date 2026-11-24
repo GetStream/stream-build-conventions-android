@@ -52,7 +52,7 @@ jobs:
 
       - name: Notify Slack on docs failure
         if: failure()
-        uses: slackapi/slack-github-action@v4.0.0
+        uses: slackapi/slack-github-action@v4.1.0
         with:
           webhook: ${{ secrets.slack-webhook-url }}
           webhook-type: incoming-webhook
