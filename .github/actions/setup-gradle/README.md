@@ -20,18 +20,13 @@ A reusable composite action that sets up Java and Gradle.
   uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
 ```
 
-### CI Workflow (write cache for main/develop)
-```yaml
-- name: Setup Gradle
-  uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
-  with:
-    cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
-```
+### Saving the cache
 
-### Release Workflow (write cache)
+Only pushes to the default branch should save, so pull requests, merge queue, manual and scheduled runs don't fill the repository's Actions cache.
+
 ```yaml
 - name: Setup Gradle
   uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
   with:
-    cache-read-only: false
+    cache-read-only: ${{ github.event_name != 'push' || github.ref_name != github.event.repository.default_branch }}
 ```
