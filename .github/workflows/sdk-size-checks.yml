@@ -37,7 +37,7 @@ env:
 jobs:
   compare-sdk-sizes:
     name: Compare SDK sizes
-    runs-on: ubuntu-latest
+    runs-on: { group: github-public-amd64 }
     outputs:
       current-sdk-sizes: ${{ steps.current.outputs.sizes }}
       pr-sdk-sizes: ${{ steps.pr.outputs.sizes }}
@@ -90,7 +90,7 @@ jobs:
     name: Post SDK size comparison
     needs: compare-sdk-sizes
     runs-on:
-      group: github-public-ubuntu-static
+      group: github-public-amd64
 
     steps:
       - name: Post a comment or print size comparison

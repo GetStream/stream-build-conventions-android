@@ -30,7 +30,7 @@ jobs:
     if: ${{ github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main' }}
     # Pushes to gh-pages, and the org IP allow list only admits static-IP runners.
     runs-on:
-      group: github-public-ubuntu-static
+      group: github-public-amd64
     permissions:
       contents: write
     steps:

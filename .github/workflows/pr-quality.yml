@@ -11,7 +11,7 @@ jobs:
   pr-checklist:
     # Calls the GitHub API, and the org IP allow list only admits static-IP runners.
     runs-on:
-      group: github-public-ubuntu-static
+      group: github-public-amd64
 
     steps:
       - name: Validate PR quality
