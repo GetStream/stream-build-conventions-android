@@ -36,9 +36,11 @@ env:
   BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
 
 jobs:
-  update-sdk-sizes:
-    name: Update SDK sizes
+  measure-sdk-sizes:
+    name: Measure SDK sizes
     runs-on: ubuntu-latest
+    outputs:
+      metrics: ${{ steps.metrics.outputs.metrics }}
 
     steps:
       - name: Checkout code
@@ -57,6 +59,7 @@ jobs:
           BUILD_CACHE_AWS_SECRET_KEY: ${{ secrets.BUILD_CACHE_AWS_SECRET_KEY }}
 
       - name: Update size metrics
+        id: metrics
         run: |
           # Create temporary JSON file
           echo '{}' > metrics.json
@@ -85,9 +88,27 @@ jobs:
 
           # Validate Generated JSON
           jq . metrics.json
-          
-          # Move temporary JSON file to the final file
-          mv metrics.json "$METRICS_FILE"
+
+          echo "metrics=$(jq -c . metrics.json)" >> "$GITHUB_OUTPUT"
+
+  # Calls the GitHub API, and the org IP allow list only admits static-IP runners.
+  # A job of its own so the Gradle build stays off that runner.
+  update-sdk-sizes:
+    name: Update SDK sizes
+    needs: measure-sdk-sizes
+    runs-on:
+      group: github-public-ubuntu-static
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Write size metrics
+        env:
+          METRICS: ${{ needs.measure-sdk-sizes.outputs.metrics }}
+        run: jq . <<<"$METRICS" > "$METRICS_FILE"
 
       - name: Update size badges
         run: |
@@ -98,7 +119,7 @@ jobs:
             sed -i "s|!\[$module\](.*)|![$module](${badgeUrl})|" README.md
           done
 
-      # Minted after the build, so the token never exists while Gradle runs.
+      # Minted in a job that never runs Gradle, so the token never exists while it runs.
       - name: Create release bot token
         id: app-token
         uses: actions/create-github-app-token@v3.4.0

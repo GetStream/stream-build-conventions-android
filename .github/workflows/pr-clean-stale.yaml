@@ -13,7 +13,9 @@ concurrency:
 
 jobs:
   stale:
-    runs-on: ubuntu-latest
+    # Calls the GitHub API, and the org IP allow list only admits static-IP runners.
+    runs-on:
+      group: github-public-ubuntu-static
 
     steps:
       - name: "Mark and close stale PRs"
