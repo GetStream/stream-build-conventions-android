@@ -24,7 +24,7 @@ jobs:
       - name: Setup Gradle
         uses: ./.github/actions/setup-gradle
         with:
-          cache-read-only: 'false' # TEMP: test saves on this PR, revert before merge
+          cache-read-only: ${{ github.event_name != 'push' || github.ref_name != github.event.repository.default_branch }}
 
       - name: Spotless
         run: ./gradlew spotlessCheck
@@ -43,7 +43,7 @@ jobs:
       - name: Setup Gradle
         uses: ./.github/actions/setup-gradle
         with:
-          cache-read-only: 'false' # TEMP: test saves on this PR, revert before merge
+          cache-read-only: ${{ github.event_name != 'push' || github.ref_name != github.event.repository.default_branch }}
 
       - name: Build and validate
         run: ./gradlew build :plugin:validatePlugins
