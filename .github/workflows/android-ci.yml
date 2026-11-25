@@ -8,6 +8,11 @@ on:
         required: false
         type: boolean
         default: true
+      save-gradle-cache:
+        description: 'Whether pushes to the default branch save the Gradle cache. Call gradle-cache-cleanup.yml after this workflow when enabled.'
+        required: false
+        type: boolean
+        default: false
 
     secrets:
       BUILD_CACHE_AWS_REGION:
@@ -22,6 +27,9 @@ on:
         required: false
 
 env:
+  # Repos that turn the local build cache off on CI check this. With the Gradle cache saved, task outputs land in it
+  # on default-branch pushes and every run reuses them.
+  GRADLE_LOCAL_BUILD_CACHE: ${{ inputs.save-gradle-cache && 'true' || 'false' }}
   BUILD_CACHE_AWS_REGION: ${{ secrets.BUILD_CACHE_AWS_REGION }}
   BUILD_CACHE_AWS_BUCKET: ${{ secrets.BUILD_CACHE_AWS_BUCKET }}
   BUILD_CACHE_AWS_ACCESS_KEY_ID: ${{ secrets.BUILD_CACHE_AWS_ACCESS_KEY_ID }}
@@ -34,6 +42,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
+        with:
+          cache-read-only: ${{ !inputs.save-gradle-cache || github.event_name != 'push' || github.ref_name != github.event.repository.default_branch }}
       - name: Build
         run: ./gradlew assembleDebug --scan
 
@@ -43,6 +53,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
+        with:
+          cache-read-only: ${{ !inputs.save-gradle-cache || github.event_name != 'push' || github.ref_name != github.event.repository.default_branch }}
       - name: Spotless
         run: ./gradlew spotlessCheck
       - name: Lint
@@ -60,6 +72,8 @@ jobs:
         with:
           fetch-depth: 0 # For Sonar analysis
       - uses: GetStream/stream-build-conventions-android/.github/actions/setup-gradle@main
+        with:
+          cache-read-only: ${{ !inputs.save-gradle-cache || github.event_name != 'push' || github.ref_name != github.event.repository.default_branch }}
       - name: Run unit tests
         run: ./gradlew :testCoverage --scan --stacktrace
       - name: Upload tests results
