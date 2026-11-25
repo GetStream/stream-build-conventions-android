@@ -5,6 +5,10 @@ updates:
     directories:
       - /
       - /.github/actions/*
+    ignore:
+      # From v6, setup-gradle's caching is a proprietary component under separate terms of use.
+      - dependency-name: gradle/actions*
+        update-types: [ "version-update:semver-major" ]
     schedule:
       interval: daily
     labels:
