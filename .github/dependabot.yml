@@ -1,7 +1,14 @@
 version: 2
 updates:
   - package-ecosystem: github-actions
-    directory: /
+    # The composite actions under .github/actions are only checked when listed.
+    directories:
+      - /
+      - /.github/actions/*
+    ignore:
+      # From v6, setup-gradle's caching is a proprietary component under separate terms of use.
+      - dependency-name: gradle/actions*
+        update-types: [ "version-update:semver-major" ]
     schedule:
       interval: daily
     labels:
