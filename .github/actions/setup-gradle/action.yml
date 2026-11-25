@@ -20,5 +20,3 @@ runs:
       uses: gradle/actions/setup-gradle@v3
       with:
         cache-read-only: ${{ inputs.cache-read-only }}
-        # Drops files the build no longer uses before saving, so the entry doesn't grow with every save.
-        gradle-home-cache-cleanup: true
