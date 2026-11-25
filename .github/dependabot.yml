@@ -1,7 +1,10 @@
 version: 2
 updates:
   - package-ecosystem: github-actions
-    directory: /
+    # The composite actions under .github/actions are only checked when listed.
+    directories:
+      - /
+      - /.github/actions/*
     schedule:
       interval: daily
     labels:
