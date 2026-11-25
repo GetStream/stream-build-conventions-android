@@ -1,8 +1,8 @@
 name: Gradle cache cleanup
 
-# Keeps only the newest Gradle User Home entry per job, so saves from every push don't fill the
-# repo's Actions cache and push out other entries. Call it after the jobs that save, from a caller
-# job granted `actions: write`.
+# Keeps only the Gradle cache entries the newest run on this branch saved or used, so saves from every
+# push don't fill the repo's Actions cache and push out other entries. Call it after the jobs that
+# save, from a caller job granted `actions: write`, and from only one saving workflow per branch.
 on:
   workflow_call:
 
@@ -12,18 +12,37 @@ jobs:
     # Calls the GitHub API, and the org IP allow list only admits static-IP runners.
     runs-on: { group: github-public-amd64 }
     steps:
-      # setup-gradle keys end in "-<commit sha>". Within each job's key, deletes only entries created
-      # before this commit's, so a failed save keeps the old entry and a late run never removes a newer one.
       - name: Remove older Gradle caches
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # shellcheck disable=SC2016 # $new is a jq variable, not a shell one
-          gh cache list -R "$GITHUB_REPOSITORY" --ref "$GITHUB_REF" --key 'gradle-home-v1|' --limit 100 \
-            --json id,key,createdAt \
-            --jq '[.[] | . + {job: (.key | sub("-[0-9a-f]{40}$"; ""))}]
-              | group_by(.job)[]
-              | (map(select(.key | endswith("-" + env.GITHUB_SHA))) | first) as $new
-              | select($new != null)
-              | .[] | select(.createdAt < $new.createdAt) | .id' \
-            | xargs -r -n1 gh cache delete -R "$GITHUB_REPOSITORY"
+          # shellcheck disable=SC2016 # $new and $start are jq variables, not shell ones
+          set -euo pipefail
+          entries=$(gh cache list -R "$GITHUB_REPOSITORY" --ref "$GITHUB_REF" --key 'gradle-' --limit 1000 \
+            --json id,key,createdAt,lastAccessedAt)
+          # The first attempt's start, as re-running failed jobs keeps the jobs that used entries before it.
+          start=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/1" --jq .run_started_at)
+
+          # Per job, setup-gradle's Gradle User Home entry ends in "-<commit sha>". Deletes only entries created
+          # before this commit's, so a failed save keeps the old entry and a late run never removes a newer one.
+          home=$(jq -r '[.[] | select(.key | startswith("gradle-home-v1|"))
+            | . + {job: (.key | sub("-[0-9a-f]{40}$"; ""))}]
+            | group_by(.job)[]
+            | (map(select(.key | endswith("-" + env.GITHUB_SHA))) | first) as $new
+            | select($new != null)
+            | .[] | select(.createdAt < $new.createdAt) | .id' <<< "$entries")
+
+          # setup-gradle also saves dependencies, transforms and similar parts as separate entries named after
+          # their content, shared across jobs and commits. This run restored or saved every one it needs, so
+          # those neither used nor created since it started are left over from older runs. Pruned only when
+          # this run saved its own entries, so a run that failed early keeps everything.
+          stale=""
+          if jq -e 'any(.[]; .key | startswith("gradle-home-v1|") and endswith("-" + env.GITHUB_SHA))' <<< "$entries" > /dev/null; then
+            stale=$(jq -r --arg start "$start" '
+              def ts: sub("\\.[0-9]+Z$"; "Z") | fromdate;
+              ($start | ts) as $start
+              | .[] | select(.key | startswith("gradle-home-v1|") | not)
+              | select((.createdAt | ts) < $start and (.lastAccessedAt | ts) < $start) | .id' <<< "$entries")
+          fi
+
+          printf '%s\n%s\n' "$home" "$stale" | sed '/^$/d' | xargs -r -n1 gh cache delete -R "$GITHUB_REPOSITORY"
