@@ -232,7 +232,7 @@ jobs:
     if: ${{ !cancelled() && (inputs.snapshot || needs.prepare.result == 'success') }}
     needs: prepare
     name: Build and stage
-    runs-on: { group: github-public-amd64 }
+    runs-on: ubuntu-latest
     outputs:
       failed-step: ${{ steps.record.outputs.failed-step }}
 
@@ -306,7 +306,7 @@ jobs:
     if: ${{ !cancelled() && needs.build.result == 'success' && contains(inputs.publish-targets, 'streamRepo') }}
     needs: build
     name: Upload to the Stream repository
-    runs-on: { group: github-public-amd64 }
+    runs-on: ubuntu-latest
     outputs:
       failed-step: ${{ steps.record.outputs.failed-step }}
 
@@ -553,7 +553,7 @@ jobs:
     if: ${{ always() && (!inputs.snapshot || contains(needs.*.result, 'failure')) }}
     needs: [prepare, build, upload, post-release]
     name: Notify Slack
-    runs-on: { group: github-public-amd64 }
+    runs-on: ubuntu-latest
 
     steps:
       - name: Compose the message

@@ -16,7 +16,7 @@ permissions:
 jobs:
   static-checks:
     name: Run static checks
-    runs-on: { group: github-public-amd64 }
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -35,7 +35,7 @@ jobs:
 
   build:
     name: Build and validate
-    runs-on: { group: github-public-amd64 }
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -50,7 +50,7 @@ jobs:
 
   validate-workflows:
     name: Run actionlint
-    runs-on: { group: github-public-amd64 }
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: raven-actions/actionlint@v2.2.0
