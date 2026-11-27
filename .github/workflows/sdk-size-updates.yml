@@ -38,7 +38,7 @@ env:
 jobs:
   measure-sdk-sizes:
     name: Measure SDK sizes
-    runs-on: { group: github-public-amd64 }
+    runs-on: ubuntu-latest
     outputs:
       metrics: ${{ steps.metrics.outputs.metrics }}
 
